@@ -1,3 +1,4 @@
+---
 - name: Setup Node
   hosts: 127.0.0.1
   connection: local
@@ -25,4 +26,4 @@
         chdir: "$HOME"
         creates: "$HOME/.nvm/versions/node/v{{ item }}"
       loop:
-        - 14.15.0
+        - 14.13.1
