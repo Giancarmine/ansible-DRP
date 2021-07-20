@@ -1,0 +1,25 @@
+# username: {{ lookup('env', 'USER') }}
+home: /home/{{ lookup('env', 'USER') }}
+repositories:
+ docker:
+  repository: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+  key_url: https://download.docker.com/linux/ubuntu/gpg
+ chrome:
+  repository: deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main
+  key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
+packages:
+ - zsh
+ - docker-ce
+ - google-chrome-stable
+ - copyq
+ - flameshot
+targzs:
+ toolbox:
+  name: Jetbrains toolbox
+  url: https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.21.9547.tar.gz
+  target_dir: "{{ home }}"
+binaries:
+ docker_compose:
+   name: docker-compose
+   url: https://github.com/docker/compose/releases/download/1.22.0/docker-compose-Linux-x86_64
+   zsh_completion: https://raw.githubusercontent.com/docker/compose/1.22.0/contrib/completion/zsh/_docker-compose

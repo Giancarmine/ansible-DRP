@@ -1,0 +1,9 @@
+---
+- hosts: localhost
+  tasks:
+   - include: apt.yml
+   - include: targz-apps.yml
+   - include: binaries.yml
+   - include: docker.yml
+   - include: nvm_node.yml
+   - include: sdkman_java.yml

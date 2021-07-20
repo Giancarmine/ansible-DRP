@@ -13,3 +13,8 @@ sudo apt install ansible
 ```bash
 ansible-playbook utils.yml -K
 ```
+## Inspired in:
+
+https://github.com/arcones/my-DRP
+https://pbassiner.github.io/blog/automating_my_dev_setup.html
+https://github.com/pbassiner/dev-env

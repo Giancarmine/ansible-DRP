@@ -1,0 +1,8 @@
+---
+- name: "Print username"
+  hosts: 127.0.0.1
+  connection: local
+  become: yes
+  tasks:
+    - debug:
+        msg: "Username: {{ lookup('env', 'USER') }}"
