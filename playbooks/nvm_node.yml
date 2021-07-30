@@ -27,3 +27,8 @@
         creates: "$HOME/.nvm/versions/node/v{{ item }}"
       loop:
         - 14.13.1
+
+    - name: Copy .npmrc to home folder
+      copy:
+        src:../configs/.npmrc
+        dest:$HOME/.npmrc
