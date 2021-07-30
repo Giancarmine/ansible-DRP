@@ -1,0 +1,7 @@
+---
+- hosts: localhost
+  tasks:
+   - include: ../playbooks/apt.yml
+   - include: ../playbooks/docker.yml
+   - include: ../playbooks/nvm_node.yml
+   - include: ../playbooks/sdkman_java.yml
