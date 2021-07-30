@@ -1,8 +1,30 @@
 ---
-- name: "Print username"
+- name: "Install sdkman! and install java 8 and 11"
   hosts: 127.0.0.1
   connection: local
   become: yes
   tasks:
-    - debug:
-        msg: "Username: {{ lookup('env', 'USER') }}"
+    - name: Check if sdkman is installed 
+      shell: test -d {{ lookup('env', 'USER') }}/.sdkman && echo "yes" || echo "no"
+      register: is_sdkman_installed
+
+    - name: Install SDKMan Package Manager
+      shell: curl -s {{sdkman_script_install_url }} | bash executable=/bin/bash
+      when : is_sdkman_installed.stdout == "no"
+
+    - name: Ensure presense of .bashrc file
+      file: state=touch path={{ lookup('env', 'USER') }}/.bashrc
+    
+    - name: Ensure presense of .zshrc file
+      file: state=touch path={{ lookup('env', 'USER') }}/.zhrc
+
+    - name: Add SDKMan in .bashrc file
+      lineinfile: dest={{ lookup('env', 'USER') }}/.bashrc regexp="\/.sdkman/bin\/sdkman\-init\.sh" line='[[ -s "{{sdkman_folder}}/bin/sdkman-init.sh" && ! $(which sdkman-init.sh) ]] && source "{{sdkman_folder}}/bin/sdkman-init.sh"'
+
+    - name: Add SDKMan in .zshrc file
+      lineinfile: dest={{ lookup('env', 'USER') }}/.zshrc regexp="\/.sdkman/bin\/sdkman\-init\.sh" line='[[ -s "{{sdkman_folder}}/bin/sdkman-init.sh" && ! $(which sdkman-init.sh) ]] && source "{{sdkman_folder}}/bin/sdkman-init.sh"'
+
+    - name: Installing java with sdkman
+      shell: "source {{ lookup('env', 'USER') }}/.sdkman/bin/sdkman-init.sh && sdk install java {{ sdk_java_versions }}"
+      args:
+        executable: /bin/zsh

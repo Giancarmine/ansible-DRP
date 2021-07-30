@@ -23,3 +23,7 @@ binaries:
    name: docker-compose
    url: https://github.com/docker/compose/releases/download/1.22.0/docker-compose-Linux-x86_64
    zsh_completion: https://raw.githubusercontent.com/docker/compose/1.22.0/contrib/completion/zsh/_docker-compose
+sdkman_script_install_url: http://get.sdkman.io
+sdk_java_versions:
+  - 8.0.292.hs-adpt
+  - 11.0.11.hs-adpt
