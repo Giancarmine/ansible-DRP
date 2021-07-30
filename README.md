@@ -1,11 +1,11 @@
-# ansible-DRP - WIP! Don't use
+# ansible-DRP - WIP! Don't use :fire:
 
 An ansible playbook collection, used to configure a ubuntu remotely or locally
 
 ## Before Start
 
 ```bash
-sudo apt install ansible
+sh bootstrap.sh
 ```
 
 ## Execute
