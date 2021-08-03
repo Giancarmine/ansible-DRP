@@ -18,6 +18,7 @@ targzs:
   name: Jetbrains toolbox
   url: https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.21.9547.tar.gz
   target_dir: "{{ home }}"
+  original_dir: jetbrains-toolbox-1.21.9547
 binaries:
  docker_compose:
    name: docker-compose
