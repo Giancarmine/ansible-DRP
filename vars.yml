@@ -27,3 +27,6 @@ sdkman_script_install_url: http://get.sdkman.io
 sdk_java_versions:
   - 8.0.292.hs-adpt
   - 11.0.11.hs-adpt
+nvm_version: 0.38.0
+nvm_node_versions:
+  - 14.13.1
