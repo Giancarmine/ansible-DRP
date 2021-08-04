@@ -4,6 +4,9 @@
   connection: local
   become: yes
   tasks:
+  - name: Set zsh as default sh
+    become: yes
+    shell: "chsh -s $(which zsh) {{ username }}"
   - name: Register Oh My Zsh installation status
     shell: ls ~/.oh-my-zsh
     failed_when: false
@@ -34,3 +37,4 @@
   - name: Update zsh-syntax-highlighting
     shell: git -C ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting pull
     when: zshsyntaxhighlighting_installed.stdout != ""
+  # Add .zshrc fileX
