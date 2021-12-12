@@ -1,21 +1,16 @@
 ---
-- name: "Installing apt packages"
-  hosts: 127.0.0.1
-  connection: local
+- include_vars: ../vars.yml
+- name: "Add apt signing keys"
   become: yes
-  tasks:
-  - include_vars: ../vars.yml
-  - name: Add apt signing keys
-    become: yes
-    apt_key: url={{ item.value.key_url }} state=present
-    with_dict: "{{ repositories }}"
-  - name: Add apt repositories
-    become: yes
-    apt_repository: repo={{ item.value.repository }}
-    with_dict: "{{ repositories }}"
-  - name: Install packages
-    become: yes
-    apt:
-      state: latest
-      update_cache: true
-      name: "{{ packages }}"
+  apt_key: url={{ item.value.key_url }} state=present
+  with_dict: "{{ repositories }}"
+- name: "Add apt repositories"
+  become: yes
+  apt_repository: repo={{ item.value.repository }}
+  with_dict: "{{ repositories }}"
+- name: "Install apt packages"
+  become: yes
+  apt:
+    state: latest
+    update_cache: true
+    name: "{{ packages }}"

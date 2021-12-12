@@ -1,15 +1,16 @@
-Vagrant.configure("2") do |config| 
-    config.vm.box = "generic/ubuntu2004" 
-    
-    config.vm.provider "libvirt" do |libvirt| 
-        libvirt.memory = "4024"
-        libvirt.cpus = "1"
-    end    
-    
-    # config.vm.provision "ansible" do |ansible|
-    #     ansible.become = true
-    #     ansible.verbose = "v"        
-    #     ansible.extra_vars = "vars.yml"
-    #     ansible.playbook = "ubuntu.yaml"
-    # end
+Vagrant.require_version ">= 1.8.0"
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "generic/ubuntu2004"
+  config.ssh.insert_key = false
+  config.vm.boot_timeout = 600
+  config.vm.synced_folder '.', '/vagrant'
+  config.vm.provision :ansible_local, run: "always" do |ansible|
+    ansible.verbose = "vvv"
+    ansible.playbook = "ubuntu.yml"
+    ansible.compatibility_mode = "auto"
+    ansible.extra_vars = {
+      user: "vagrant"
+    }
+  end
 end

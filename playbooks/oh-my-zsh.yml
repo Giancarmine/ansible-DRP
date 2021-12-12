@@ -1,40 +1,35 @@
 ---
-- name: "Installing and configuring Oh My Zsh"
-  hosts: 127.0.0.1
-  connection: local
+- name: Set zsh as default sh
   become: yes
-  tasks:
-  - name: Set zsh as default sh
-    become: yes
-    shell: "chsh -s $(which zsh) {{ username }}"
-  - name: Register Oh My Zsh installation status
-    shell: ls ~/.oh-my-zsh
-    failed_when: false
-    register: ohmyzsh_installed
-  - name: Install Oh My Zsh
-    shell: git clone https://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
-    when: ohmyzsh_installed.stdout == ""
-  - name: Update Oh My Zsh
-    shell: git -C ~/.oh-my-zsh pull
-    when: ohmyzsh_installed.stdout != ""
-  - name: Register zsh-autosuggestions installation status
-    shell: ls ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
-    failed_when: false
-    register: zshautosuggestions_installed
-  - name: Install zsh-autosuggestions
-    shell: git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
-    when: zshautosuggestions_installed.stdout == ""
-  - name: Update zsh-autosuggestions
-    shell: git -C ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions pull
-    when: zshautosuggestions_installed.stdout != ""
-  - name: Register zsh-syntax-highlighting installation status
-    shell: ls ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-    failed_when: false
-    register: zshsyntaxhighlighting_installed
-  - name: Install zsh-syntax-highlighting
-    shell: git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-    when: zshsyntaxhighlighting_installed.stdout == ""
-  - name: Update zsh-syntax-highlighting
-    shell: git -C ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting pull
-    when: zshsyntaxhighlighting_installed.stdout != ""
+  shell: "chsh -s $(which zsh) {{ username }}"
+- name: Register Oh My Zsh installation status
+  shell: ls ~/.oh-my-zsh
+  failed_when: false
+  register: ohmyzsh_installed
+- name: Install Oh My Zsh
+  shell: git clone https://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
+  when: ohmyzsh_installed.stdout == ""
+- name: Update Oh My Zsh
+  shell: git -C ~/.oh-my-zsh pull
+  when: ohmyzsh_installed.stdout != ""
+- name: Register zsh-autosuggestions installation status
+  shell: ls ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+  failed_when: false
+  register: zshautosuggestions_installed
+- name: Install zsh-autosuggestions
+  shell: git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+  when: zshautosuggestions_installed.stdout == ""
+- name: Update zsh-autosuggestions
+  shell: git -C ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions pull
+  when: zshautosuggestions_installed.stdout != ""
+- name: Register zsh-syntax-highlighting installation status
+  shell: ls ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+  failed_when: false
+  register: zshsyntaxhighlighting_installed
+- name: Install zsh-syntax-highlighting
+  shell: git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+  when: zshsyntaxhighlighting_installed.stdout == ""
+- name: Update zsh-syntax-highlighting
+  shell: git -C ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting pull
+  when: zshsyntaxhighlighting_installed.stdout != ""
   # Add .zshrc fileX
