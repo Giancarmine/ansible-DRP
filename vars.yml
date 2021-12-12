@@ -1,4 +1,4 @@
-# username: {{ lookup('env', 'USER') }}
+username: "{{ lookup('env', 'USER') }}"
 home: /home/{{ lookup('env', 'USER') }}
 repositories:
  docker:
@@ -15,20 +15,21 @@ packages:
  - flameshot
 targzs:
  toolbox:
-  name: Jetbrains toolbox
-  url: https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.21.9547.tar.gz
+  name: "Jetbrains toolbox"
+  url: "https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.22.10774.tar.gz"
   target_dir: "{{ home }}"
-  original_dir: jetbrains-toolbox-1.21.9547
-  symlinked_dir: jetbrains-toolbox
+  original_dir: "jetbrains-toolbox-1.22.10774"
+  symlinked_dir: "jetbrains-toolbox"
 binaries:
  docker_compose:
    name: docker-compose
-   url: https://github.com/docker/compose/releases/download/1.22.0/docker-compose-Linux-x86_64
-   zsh_completion: https://raw.githubusercontent.com/docker/compose/1.22.0/contrib/completion/zsh/_docker-compose
+   url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+   zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
 sdkman_script_install_url: http://get.sdkman.io
 sdk_java_versions:
   - 8.0.292.hs-adpt
   - 11.0.11.hs-adpt
+  - 16.0.2-temq
 nvm_version: 0.38.0
 nvm_node_versions:
   - 14.13.1

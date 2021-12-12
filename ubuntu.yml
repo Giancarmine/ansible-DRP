@@ -1,0 +1,7 @@
+---
+- hosts: all
+  tasks:
+    - include: playbooks/apt.yml
+    - include: playbooks/targz-apps.yml
+    - include: playbooks/docker.yml
+    # - include: playbooks/oh-my-zsh.yml

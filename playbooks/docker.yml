@@ -1,7 +1,5 @@
 ---
+- include_vars: vars.yml
 - name: Add user to docker group
-  hosts: 127.0.0.1
-  connection: local
   become: yes
-  tasks:
-    - shell: "usermod -aG docker {{ lookup('env', 'USER') }}"
+  shell: "usermod -aG docker {{ username }}"

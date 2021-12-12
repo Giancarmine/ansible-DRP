@@ -1,7 +1,0 @@
----
-- hosts: localhost
-  tasks:
-    - include: apt.yml
-    - include: targz-apps.yml
-    - include: docker.yml
-    - include: oh-my-zsh.yml
