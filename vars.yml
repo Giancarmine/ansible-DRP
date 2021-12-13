@@ -30,6 +30,6 @@ sdk_java_versions:
   - 8.0.292.hs-adpt
   - 11.0.11.hs-adpt
   - 16.0.2-temq
-nvm_version: 0.38.0
+nvm_version: 0.39.0
 nvm_node_versions:
-  - 14.13.1
+  - 16.9.1

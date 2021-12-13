@@ -1,32 +1,27 @@
 ---
-- name: "Installing nvm and setup node"
-  hosts: 127.0.0.1
-  connection: local
+- include_vars: ../vars.yml
+- name: "Install nvm"
   become: yes
-  tasks:
-  - include_vars: ../vars.yml
-  - name: "Install nvm"
-    become: yes
-    ansible.builtin.shell: >
-      curl -o- https://raw.githubusercontent.com/creationix/nvm/v{{ nvm_version }}/install.sh | bash
-    args:
-      executable: /bin/bash
-      chdir: "$HOME"
-      creates: "$HOME/.nvm/nvm.sh"
-  - name: "Setup .profile"
-    become: yes
-    ansible.builtin.lineinfile:
-      path: ~/.profile
-      line: source ~/.nvm/nvm.sh # This will make sure Node is on the user's PATH
-      create: yes
-  - name: "Install node"
-    ansible.builtin.shell: |
-      nvm install {{ nvm_node_versions }}
-    args:
-      executable: /bin/bash
-      chdir: "$HOME"
-      creates: "$HOME/.nvm/versions/node/v{{ nvm_node_versions }}"
-  - name: "Copy .npmrc to home folder"
-    copy:
-      src:../configs/.npmrc
-      dest:$HOME/.npmrc
+  ansible.builtin.shell: >
+    curl -o- https://raw.githubusercontent.com/creationix/nvm/v{{ nvm_version }}/install.sh | bash
+  args:
+    executable: /bin/bash
+    chdir: "$HOME"
+    creates: "$HOME/.nvm/nvm.sh"
+- name: "Setup .profile"
+  become: yes
+  ansible.builtin.lineinfile:
+    path: ~/.profile
+    line: source ~/.nvm/nvm.sh # This will make sure Node is on the user's PATH
+    create: yes
+- name: "Install node"
+  ansible.builtin.shell: |
+    nvm install {{ nvm_node_versions }}
+  args:
+    executable: /bin/bash
+    chdir: "$HOME"
+    creates: "$HOME/.nvm/versions/node/v{{ nvm_node_versions }}"
+- name: "Copy .npmrc to home folder"
+  copy:
+    src: "../configs/.npmrc"
+    dest: "$HOME/.npmrc"

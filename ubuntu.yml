@@ -5,3 +5,5 @@
     - include: playbooks/targz-apps.yml
     - include: playbooks/docker.yml
     # - include: playbooks/oh-my-zsh.yml
+    # - include: playbooks/nvm_node.yml
+    # - include: playbooks/sdkman_java.yml
