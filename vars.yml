@@ -8,6 +8,9 @@ repositories:
   repository: deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main
   key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
 packages:
+ - software-properties-common
+ - git
+ - net-tools
  - zsh
  - docker-ce
  - google-chrome-stable
