@@ -1,0 +1,5 @@
+name: 'Ansible'
+description: 'Test an Ansible playbook in CI' 
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
