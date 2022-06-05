@@ -1,18 +1,28 @@
 # ansible-DRP - WIP! Don't use :fire:
 
-An ansible playbook collection, used to configure a ubuntu remotely or locally
+An ansible playbooks collection, used to configure a ubuntu remotely or locally
 
-## Before Start
+## Execute ansible tasks automatically (test purpose) :rocket:
+
+```bash
+vagrant up
+```
+
+## Execute ansible tasks manually :wrench:
+
+### Before Start
 
 ```bash
 sh bootstrap.sh
 ```
 
-## Execute
+### Execute
 
 ```bash
 ansible-playbook utils.yml -K
 ```
+
+---
 
 ## Inspired in
 
