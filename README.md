@@ -4,8 +4,8 @@ An ansible playbooks collection, used to configure a ubuntu remotely or locally
 
 # Don't ask me anything, just do the magic.
 
-# Let's play step by step
-```bash
+```sh
+wget -qO- https://github.com/Giancarmine/ansible-DRP/blob/main/bootstrap.sh | bash
 ```
 
 ## Prerequisites
