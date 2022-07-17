@@ -1,5 +1,4 @@
 ---
-- include_vars: ../vars.yml
 - name: "Check .tar.gz already at latest"
   stat:
     path: "{{ item.value.target_dir }}/{{ item.value.original_dir }}"

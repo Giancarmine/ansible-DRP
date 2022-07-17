@@ -1,9 +1,11 @@
 ---
-- hosts: all
+- name: run playbook tasks locally
+  hosts: 127.0.0.1
+  connection: local
+  environment:
+    NETRC: '/dev/null'
+  roles:
+    - role: base
   tasks:
-    - include: playbooks/apt.yml
-    - include: playbooks/targz-apps.yml
-    - include: playbooks/docker.yml
-    # - include: playbooks/oh-my-zsh.yml
-    # - include: playbooks/nvm_node.yml
-    # - include: playbooks/sdkman_java.yml
+    - include_tasks: playbooks/targz-apps.yml
+    - include_tasks: playbooks/docker.yml
