@@ -1,6 +1,8 @@
 # ansible-DRP - WIP! Don't use :fire:
 
-An ansible playbooks collection, used to configure a ubuntu remotely or locally
+An ansible collection, used to configure a ubuntu remotely or locally
+
+[![vagrant-up](https://github.com/Giancarmine/ansible-DRP/actions/workflows/vagrant-up.yml/badge.svg)](https://github.com/Giancarmine/ansible-DRP/actions/workflows/vagrant-up.yml)
 
 # Don't ask me anything, just do the magic.
 
@@ -32,10 +34,18 @@ NETRC=/dev/null ansible-galaxy collection install community.general
 
 - install apt, snap and pip packages
 
-# Execute ansible tasks automatically (test purpose) :rocket:
+## Execute ansible tasks automatically (test purpose) :rocket:
+
+### Execute ansible tasks automatically in a vagrant box
 
 ```bash
 vagrant up
+```
+
+### Perform a vagrant clean-up
+
+```bash
+vagrant destroy
 ```
 
 ## Execute ansible tasks manually :wrench:
@@ -52,7 +62,7 @@ sh bootstrap.sh
 ansible-playbook utils.yml -K
 ```
 
-## Tested in:
+## Tested on:
 - ubuntu 22.04
 
 ---
