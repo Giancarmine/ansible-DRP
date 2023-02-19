@@ -14,7 +14,7 @@ wget -qO- https://github.com/Giancarmine/ansible-DRP/blob/main/bootstrap.sh | ba
 
 - Get Ubuntu Latest LTS release ISO image from [ubuntu website](https://ubuntu.com/download/desktop)
 - Create a bootable USB stick using ["rufus"](https://rufus.ie) or ["ventoy"](https://www.ventoy.net/en/index.html)
-- During install, ensure to __use full-disk-encryption__, which requires using LVM
+- During installation, ensure to __use full-disk-encryption__, which requires using LVM
 
 ### Setup Ansible
 

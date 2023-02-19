@@ -12,15 +12,21 @@ repositories:
 packages_apt:
   - copyq
   - curl
-  - docker-ce
   - fwupd
   - git
-  - google-chrome-stable
   - unrar
   - net-tools
   - software-properties-common
   - wget
   - zsh
+
+packages_pip:
+  - ansicolors
+  - kubernetes
+  - requests
+  - schema
+
+packages_snap: []
 
 targzs:
  toolbox:

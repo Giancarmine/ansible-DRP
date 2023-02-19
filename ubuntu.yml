@@ -1,11 +1,8 @@
 ---
-- name: run playbook tasks locally
-  hosts: 127.0.0.1
+- name: Configuring Local Environment - Asus Zenbook 13
+  hosts: all
   connection: local
   environment:
     NETRC: '/dev/null'
   roles:
     - role: base
-  tasks:
-    - include_tasks: playbooks/targz-apps.yml
-    - include_tasks: playbooks/docker.yml
