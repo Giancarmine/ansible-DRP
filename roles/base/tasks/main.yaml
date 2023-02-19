@@ -1,6 +1,5 @@
 ---
 # Install APT packages
-
 - name: Install APT packages
   become: true
   apt:
@@ -10,7 +9,6 @@
     - apt
 
 # PIP configuration
-
 - name: Configure PIP
   block:
   - name: Configure PIP (directory)
@@ -21,7 +19,6 @@
     - pip
 
 # Install PIP packages
-
 - name: Install PIP packages
   pip:
     name: "{{ packages_pip }}"
@@ -29,7 +26,6 @@
     - pip
 
 # Install SNAP packages
-
 - name: Install SNAP packages
   become: true
   snap:

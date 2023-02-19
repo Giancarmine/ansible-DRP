@@ -1,14 +1,6 @@
 username: "{{ lookup('env', 'USER') }}"
 home: /home/{{ lookup('env', 'USER') }}
 
-repositories:
- docker:
-  repository: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
-  key_url: https://download.docker.com/linux/ubuntu/gpg
- chrome:
-  repository: deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main
-  key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
-
 packages_apt:
   - copyq
   - curl
@@ -16,6 +8,7 @@ packages_apt:
   - git
   - unrar
   - net-tools
+  - python3-pip
   - software-properties-common
   - wget
   - zsh
@@ -26,21 +19,31 @@ packages_pip:
   - requests
   - schema
 
-packages_snap: []
+packages_snap: [ ]
+
+
+# k8s packages
+kops_version: 1.22.5
+kubectl_version: 1.23.13
+kubelogin_version: 1.25.1
+istioctl_version: 1.11.8
+meshctl_version: 1.1.2
+helm_version: 3.9.3
+kustomize_version: 4.0.4
 
 targzs:
- toolbox:
-  name: "Jetbrains toolbox"
-  url: "https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.22.10774.tar.gz"
-  target_dir: "{{ home }}"
-  original_dir: "jetbrains-toolbox-1.22.10774"
-  symlinked_dir: "jetbrains-toolbox"
+  toolbox:
+    name: "Jetbrains toolbox"
+    url: "https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.22.10774.tar.gz"
+    target_dir: "{{ home }}"
+    original_dir: "jetbrains-toolbox-1.22.10774"
+    symlinked_dir: "jetbrains-toolbox"
 
 binaries:
- docker_compose:
-   name: docker-compose
-   url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
-   zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
+  docker_compose:
+    name: docker-compose
+    url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+    zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
 
 
 sdkman_script_install_url: http://get.sdkman.io

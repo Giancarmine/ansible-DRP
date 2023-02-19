@@ -1,0 +1,24 @@
+---
+- name: Docker
+  become: true
+  block:
+  - name: Install Docker
+    apt:
+      name: docker.io
+  - name: Configure Docker
+    template:
+      src: etc/docker/daemon.json.j2
+      dest: /etc/docker/daemon.json
+    register: docker_configuration
+  - name: Docker service
+    systemd:
+      name: docker
+      state: restarted
+    when: docker_configuration.changed
+  - name: Docker group assign
+    user:
+      name: "{{ username }}"
+      groups: docker
+      append: yes
+  tags:
+    - docker

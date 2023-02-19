@@ -1,0 +1,36 @@
+- name: "{{ name }} binary directory"
+  become: true
+  file:
+    path: "{{ lib_dir }}/{{ name }}-{{ version }}"
+    state: directory
+    recurse: yes
+
+- name: "{{ name }} download"
+  become: true
+  get_url:
+    url: "{{ src_url | replace('%', version) }}"
+    dest: "{{ lib_dir }}/{{ name }}-{{ version }}/{{ src_url | basename }}"
+    mode: "0755"
+  when: unarchive | bool == false
+
+- name: "{{ name }} unarchive"
+  become: true
+  unarchive:
+    src: "{{ src_url | replace('%', version) }}"
+    dest: "{{ lib_dir }}/{{ name }}-{{ version }}/"
+    remote_src: yes
+    creates: "{{ name }}-{{ version }}/{{ target }}"
+  when: unarchive | bool == true
+
+- name: "{{ name }} symlink"
+  become: true
+  file:
+    src: "{{ lib_dir }}/{{ name }}-{{ version }}/{{ target | default(src_url | basename) }}"
+    path: "{{ bin_dir }}/{{ name }}"
+    state: link
+
+- name: "{{ name }} completion"
+  lineinfile:
+    path: ~/.bashrc
+    line: "{{ completion }}"
+  when: completion is defined

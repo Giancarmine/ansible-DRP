@@ -6,3 +6,8 @@
     NETRC: '/dev/null'
   roles:
     - role: base
+    - role: docker
+    - role: k8s_tools
+    - role: ms-teams
+    - role: slack
+    - role: vscode

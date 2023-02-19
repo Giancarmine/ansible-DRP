@@ -1,0 +1,39 @@
+
+---
+- name: "{{ name }} apt signing key"
+  become: true
+  block:
+    - name: "{{ name }} apt signing key from url"
+      become: true
+      ansible.builtin.apt_key:
+        state: present
+        url: "{{ key.url }}"
+        keyring: "{{ key.keyring }}"
+        id: "{{ key.id if key.id is defined else '' }}"
+      when: key.url is defined
+    - name: "{{ name }} apt signing key from keyserver"
+      become: true
+      ansible.builtin.apt_key:
+        state: present
+        id: "{{ key.id }}"
+        keyring: "{{ key.keyring }}"
+        keyserver: "{{ key.keyserver }}"
+      when: key.keyserver is defined
+  when: key is defined
+
+- name: "{{ name }} apt repository"
+  become: true
+  ansible.builtin.apt_repository:
+    state: present
+    repo: "deb [{{ options | join(' ')}}] {{ repo }}"
+    filename: "{{ name }}"
+  vars:
+    options: "{{ (['arch=' + arch] if arch is defined else []) + (['signed-by=' + key.keyring] if key is defined else []) }}"
+
+- name: "{{ name }} install package"
+  become: true
+  apt:
+    name: "{{ package }}"
+    state: present
+    update_cache: no
+  when: package is defined

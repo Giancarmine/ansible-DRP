@@ -1,0 +1,125 @@
+---
+# Install kOps
+- name: Install kOps
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - kops
+    public: no
+  vars:
+    name: kops
+    version: "{{ kops_version }}"
+    src_url: '{{ github_url }}/kubernetes/kops/releases/download/v%/kops-linux-amd64'
+    completion: 'source <(kops completion bash --no-descriptions)'
+  tags:
+    - kops
+
+# Install kubectl
+- name: Install kubectl
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - kubectl
+    public: no
+  vars:
+    name: kubectl
+    version: "{{ kubectl_version }}"
+    src_url: 'https://storage.googleapis.com/kubernetes-release/release/v%/bin/linux/amd64/kubectl'
+    completion: 'source <(kubectl completion bash)'
+  tags:
+    - kubectl
+
+# Install helm
+- name: helm
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - helm
+    public: no
+  vars:
+    name: helm
+    version: "{{ helm_version }}"
+    src_url: https://get.helm.sh/helm-v%-linux-amd64.tar.gz
+    unarchive: true
+    target: linux-amd64/helm
+    completion: 'source <(helm completion bash --no-descriptions)'
+  tags:
+    - helm
+
+# Install istioctl
+- name: Install istioctl
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - istioctl
+    public: no
+  vars:
+    name: istioctl
+    version: "{{ istioctl_version }}"
+    src_url: '{{ github_url }}/istio/istio/releases/download/%/istioctl-%-linux-amd64.tar.gz'
+    unarchive: true
+    target: istioctl
+  tags:
+    - istioctl
+
+# Install meshctl
+- name: Install meshctl
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - meshctl
+    public: no
+  vars:
+    name: meshctl
+    version: "{{ meshctl_version }}"
+    src_url: '{{ github_url }}/solo-io/gloo-mesh/releases/download/v%/meshctl-linux-amd64'
+  tags:
+    - meshctl
+
+# Install kubelogin
+- name: Install kubelogin
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - kubelogin
+    public: no
+  vars:
+    name: kubelogin
+    version: "{{ kubelogin_version }}"
+    src_url: '{{ github_url }}/int128/kubelogin/releases/download/v%/kubelogin_linux_amd64.zip'
+    unarchive: true
+    target: kubelogin
+  tags:
+    - kubelogin
+
+# Install kustomize
+- name: Install kustomize
+  include_role:
+    name: custom_tools
+    apply:
+      tags:
+        - kustomize
+    public: no
+  vars:
+    name: kustomize
+    version: "{{ kustomize_version }}"
+    src_url: '{{ github_url }}/kubernetes-sigs/kustomize/releases/download/kustomize/v%/kustomize_v%_linux_amd64.tar.gz'
+    unarchive: true
+    target: kustomize
+  tags:
+    - kustomize
+
+- name: Create kustomize wrapper
+  become: True
+  copy:
+    src: usr/local/bin/kustomize-wrapper
+    dest: /usr/local/bin/kustomize-wrapper
+    mode: '0755'
+  tags:
+    - kustomize
