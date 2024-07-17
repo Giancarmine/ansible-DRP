@@ -13,7 +13,7 @@
       url: https://packages.microsoft.com/keys/microsoft.asc
       keyring: /etc/apt/trusted.gpg.d/packages.microsoft.gpg
     arch: amd64
-    repo: https://packages.microsoft.com/repos/ms-teams stable main
+    repo: https://packages.microsoft.com/repos/ms-teams/dists stable main
     package: teams
   tags:
     - teams
