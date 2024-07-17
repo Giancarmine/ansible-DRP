@@ -6,7 +6,7 @@
     NETRC: "/dev/null"
   roles:
     - role: base
-    - role: bartdorlandt.ohmyzsh
+    #    - role: bartdorlandt.ohmyzsh
     #    - role: gantsign.sdkman
     - role: docker
     - role: k8s_tools
