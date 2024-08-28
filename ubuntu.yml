@@ -6,13 +6,11 @@
     NETRC: "/dev/null"
   roles:
     - role: base
-    #    - role: bartdorlandt.ohmyzsh
-    #    - role: gantsign.sdkman
-    - role: docker
-    - role: k8s_tools
-    #    - role: ms-teams
-    - role: slack
-    - role: vscode
+    - role: ohmyzsh
+    # - role: docker
+    # - role: k8s_tools
+    # - role: slack
+    # - role: vscode
   handlers:
     - name: Restart Galaxy
       supervisorctl:
