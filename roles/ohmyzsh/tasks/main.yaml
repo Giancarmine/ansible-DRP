@@ -1,0 +1,79 @@
+---
+- name: Install Oh My Zsh
+  become: true
+  apt:
+    name: zsh
+    state: present
+
+- name: Clone Oh My Zsh
+  become: true
+  git:
+    repo: https://github.com/ohmyzsh/oh-my-zsh.git
+    dest: ~/.oh-my-zsh
+    recursive: yes
+
+- name: Clone zsh-autosuggestions
+  become: true
+  git:
+    repo: https://github.com/zsh-users/zsh-autosuggestions
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+    recursive: yes
+
+- name: Clone zsh-syntax-highlighting
+  become: true
+  git:
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+    recursive: yes
+
+- name: Clone zsh-history-substring-search
+  become: true
+  git:
+    repo: https://github.com/zsh-users/zsh-history-substring-search
+    dest: ~/.oh-my-zsh/custom/plugins/zsh-history-substring-search
+    recursive: yes
+
+- name: Set Zsh as default shell
+  become: true
+  user:
+    name: "{{ username }}"
+    shell: /bin/zsh
+
+- name: Ensure .zshrc file exists
+  become: true
+  stat:
+    path: "{{ home }}/.zshrc"
+  register: zshrc_stat
+  
+- name: Create .zshrc file if it doesn't exist
+  become: true
+  file:
+    path: "{{ home }}/.zshrc"
+    state: touch
+  when: not zshrc_stat.stat.exists
+
+- name: Configure Oh My Zsh
+  become: true
+  template:
+    src: zshrc.j2
+    dest: "{{ home }}/.zshrc"
+    mode: '0644'
+  
+- name: Reload shell
+  become: true
+  shell: |
+    echo "Reloading shell..."
+    if [[ -n "$SHELL" ]]; then
+      eval "$(echo $SHELL)"
+    fi
+    if [[ -n "$HOME" ]]; then
+      cd ~
+    fi
+    if [[ -f ~/.zshrc ]]; then
+      source ~/.zshrc
+    else
+      echo "Warning: .zshrc file not found."
+    fi
+  args:
+    executable: /bin/bash
+    creates: "{{ home }}/.zshrc"

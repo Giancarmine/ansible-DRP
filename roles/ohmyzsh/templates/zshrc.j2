@@ -1,0 +1,19 @@
+# roles/ohmyzsh/templates/zshrc.j2
+
+export PATH="$HOME/bin:$PATH"
+export HIST_STAMPS='yyyy-mm-dd HH:MM:ss'
+export HISTSIZE=10000
+export SAVEHIST=10000
+
+plugins=(
+  git
+  zsh-autosuggestions
+  zsh-syntax-highlighting
+)
+
+ZSH_THEME="robbyrussell"
+
+source $HOME/.oh-my-zsh/lib/theme-and-apPEARance.zsh
+source $HOME/.oh-my-zsh/lib/key-bindings.zsh
+
+autoload -U compinit && compinit
