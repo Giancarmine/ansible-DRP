@@ -8,23 +8,6 @@
   tags:
     - apt
 
-# PIP configuration
-# - name: Configure PIP
-#   block:
-#   - name: Configure PIP (directory)
-#     file:
-#       path: ~/.pip
-#       state: directory
-#   tags:
-#     - pip
-
-# Install PIP packages
-# - name: Install PIP packages
-#   pip:
-#     name: "{{ packages_pip }}"
-#   tags:
-#     - pip
-
 # Install SNAP packages
 - name: Install SNAP packages
   become: true

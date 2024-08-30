@@ -16,7 +16,7 @@ wget -qO- https://github.com/Giancarmine/ansible-DRP/blob/main/bootstrap.sh | ba
 
 - Get Ubuntu Latest LTS release ISO image from [ubuntu website](https://ubuntu.com/download/desktop)
 - Create a bootable USB stick using ["rufus"](https://rufus.ie) or ["ventoy"](https://www.ventoy.net/en/index.html)
-- During installation, ensure to __use full-disk-encryption__, which requires using LVM
+- During installation, ensure to **use full-disk-encryption**, which requires using LVM
 
 ### Setup Ansible
 
@@ -30,9 +30,13 @@ NETRC=/dev/null ansible-galaxy collection install community.general
 
 # Ansible Roles
 
-### base
-
-- install apt, snap and pip packages
+| Role      | Include                                                                                                              | Pre-requisite | Status             |
+| --------- | -------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------ |
+| base      | APT: wget, copyq, curl, fwupd, git, zip, unrar, unzip, net-tools, python3-pip, software-properties-common SNAP: NONE | NONE          | :white_check_mark: |
+| ohmyzsh   | zsh and ohmyzsh config                                                                                               | NONE          | :white_check_mark: |
+| vscode    | NONE                                                                                                                 | NONE          | :white_check_mark: |
+| docker    | NONE                                                                                                                 | NONE          | :white_check_mark: |
+| k8s_tools | kops, kubectl, kubelogin, istioctl, helm, kustomize                                                                  | NONE          | :white_check_mark: |
 
 ## Execute ansible tasks automatically (test purpose) :rocket:
 
@@ -46,6 +50,12 @@ vagrant up
 
 ```bash
 vagrant destroy
+```
+
+### Execute ansible tasks automatically in a vagrant box in a clean environment
+
+```bash
+vagrant destroy -f && vagrant up
 ```
 
 ## Execute ansible tasks manually :wrench:
@@ -63,6 +73,7 @@ ansible-playbook utils.yml -K
 ```
 
 ## Tested on:
+
 - ubuntu 22.04
 
 ---

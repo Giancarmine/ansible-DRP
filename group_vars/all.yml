@@ -14,12 +14,6 @@ packages_apt:
   - python3-pip
   - software-properties-common
 
-packages_pip:
-  - ansicolors
-  - kubernetes
-  - requests
-  - schema
-
 packages_snap: []
 
 # k8s packages
@@ -29,10 +23,6 @@ kubelogin_version: 1.25.1
 istioctl_version: 1.11.8
 helm_version: 3.9.3
 kustomize_version: 4.0.4
-
-sdk_installs:
-  - 11.0.12-open
-  - 8.0.302-open
 
 targzs:
   toolbox:
@@ -47,9 +37,5 @@ binaries:
     name: docker-compose
     url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
     zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
-
-nvm_version: 0.39.0
-nvm_node_versions:
-  - 16.9.1
 
 oh_my_zsh_version: 0.9.20

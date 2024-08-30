@@ -7,10 +7,9 @@
   roles:
     - role: base
     - role: ohmyzsh
-    # - role: docker
-    # - role: k8s_tools
-    # - role: slack
-    # - role: vscode
+    - role: vscode
+    - role: docker
+    - role: k8s_tools
   handlers:
     - name: Restart Galaxy
       supervisorctl:
