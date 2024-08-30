@@ -74,7 +74,7 @@ ansible-playbook utils.yml -K
 
 ## Tested on:
 
-- ubuntu 22.04
+- ubuntu 24.04
 
 ---
 
