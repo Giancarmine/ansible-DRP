@@ -1,4 +1,4 @@
-# ansible-DRP - WIP! Don't use :fire:
+# ansible-DRP :fire:
 
 An ansible collection, used to configure a ubuntu remotely or locally
 
@@ -10,7 +10,7 @@ An ansible collection, used to configure a ubuntu remotely or locally
 wget -qO- https://github.com/Giancarmine/ansible-DRP/blob/main/bootstrap.sh | bash
 ```
 
-## Prerequisites
+## Prerequisites :bookmark:
 
 ### Install Ubuntu
 
@@ -28,7 +28,7 @@ sudo apt install ansible
 NETRC=/dev/null ansible-galaxy collection install community.general
 ```
 
-# Ansible Roles
+# Ansible Roles :paperclip:
 
 | Role      | Include                                                                                                              | Pre-requisite | Status             |
 | --------- | -------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------ |
@@ -72,7 +72,7 @@ sh bootstrap.sh
 ansible-playbook utils.yml -K
 ```
 
-## Tested on:
+## Tested on :test_tube:
 
 - ubuntu 24.04
 
