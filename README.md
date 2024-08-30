@@ -4,7 +4,7 @@ An ansible collection, used to configure a ubuntu remotely or locally
 
 [![vagrant-up](https://github.com/Giancarmine/ansible-DRP/actions/workflows/vagrant-up.yml/badge.svg)](https://github.com/Giancarmine/ansible-DRP/actions/workflows/vagrant-up.yml)
 
-# Don't ask me anything, just do the magic.
+# Don't ask me anything, just do the magic. :teapot:
 
 ```sh
 wget -qO- https://github.com/Giancarmine/ansible-DRP/blob/main/bootstrap.sh | bash
