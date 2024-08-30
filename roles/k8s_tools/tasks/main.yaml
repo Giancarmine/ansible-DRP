@@ -66,21 +66,6 @@
   tags:
     - istioctl
 
-# Install meshctl
-- name: Install meshctl
-  include_role:
-    name: custom_tools
-    apply:
-      tags:
-        - meshctl
-    public: no
-  vars:
-    name: meshctl
-    version: "{{ meshctl_version }}"
-    src_url: '{{ github_url }}/solo-io/gloo-mesh/releases/download/v%/meshctl-linux-amd64'
-  tags:
-    - meshctl
-
 # Install kubelogin
 - name: Install kubelogin
   include_role:
