@@ -1,0 +1,50 @@
+---
+- name: Install Topgrade
+  become: true
+  get_url:
+    url: "https://github.com/topgrade-rs/topgrade/releases/download/v{{ topgrade_version }}/topgrade-v{{ topgrade_version }}-x86_64-unknown-linux-gnu.tar.gz"
+    dest: "/usr/local/bin/topgrade"
+    mode: "0755"
+
+- name: Make Topgrade executable
+  become: true
+  command: chmod +x /usr/local/bin/topgrade
+
+- name: Check if .profile file exist
+  become: true
+  stat:
+    path: "{{ home }}/.profile"
+  register: profile_stat
+
+- name: Create .profile file if it doesn't exist
+  become: true
+  file:
+    path: "{{ home }}/.profile"
+    state: touch
+  when: not profile_stat.stat.exists
+
+- name: Configure Topgrade
+  become: true
+  template:
+    src: topgrade.j2
+    dest: "{{ home }}/.profile"
+    mode: "0644"
+
+- name: Reload shell
+  become: true
+  shell: |
+    echo "Reloading shell..."
+    if [[ -n "$SHELL" ]]; then
+      eval "$(echo $SHELL)"
+    fi
+    if [[ -n "$HOME" ]]; then
+      cd ~
+    fi
+    if [[ -f ~/.profile ]]; then
+      source ~/.profile
+    else
+      echo "Warning: .profile file not found."
+    fi
+  args:
+    executable: /bin/bash
+    creates: "{{ home }}/.profile"

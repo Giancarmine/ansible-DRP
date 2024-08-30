@@ -34,6 +34,7 @@ NETRC=/dev/null ansible-galaxy collection install community.general
 | --------- | -------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------ |
 | base      | APT: wget, copyq, curl, fwupd, git, zip, unrar, unzip, net-tools, python3-pip, software-properties-common SNAP: NONE | NONE          | :white_check_mark: |
 | ohmyzsh   | zsh and ohmyzsh config                                                                                               | NONE          | :white_check_mark: |
+| topgrade  | NONE                                                                                                                 | NONE          | :white_check_mark: |
 | vscode    | NONE                                                                                                                 | NONE          | :white_check_mark: |
 | docker    | NONE                                                                                                                 | NONE          | :white_check_mark: |
 | k8s_tools | kops, kubectl, kubelogin, istioctl, helm, kustomize                                                                  | NONE          | :white_check_mark: |

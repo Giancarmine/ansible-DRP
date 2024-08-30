@@ -1,5 +1,5 @@
 ---
-- name: Configuring Local Environment - Asus Zenbook 13
+- name: Configuring Local Environment - El_Giancar
   hosts: all
   connection: local
   environment:
@@ -7,9 +7,10 @@
   roles:
     - role: base
     - role: ohmyzsh
-    - role: vscode
+    - role: topgrade
     - role: docker
     - role: k8s_tools
+    - role: vscode
   handlers:
     - name: Restart Galaxy
       supervisorctl:

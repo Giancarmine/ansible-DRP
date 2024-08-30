@@ -39,3 +39,5 @@ binaries:
     zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
 
 oh_my_zsh_version: 0.9.20
+
+topgrade_version: "15.0.0"
