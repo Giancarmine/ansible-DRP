@@ -159,6 +159,24 @@ The same run is available from the **Vagrant** workflow with `workflow_dispatch`
 because nested virtualization is slow and not always available on hosted runners. CI validates
 the playbook statically; it does not provision a machine on every commit.
 
+### Vagrant VM notes (libvirt)
+
+The bundled `Vagrantfile` uses the `alvistack/ubuntu-24.04` libvirt box and a 9p shared folder.
+That box ships with cloud-init disabled, so the `mount-9p` provisioner mounts `/vagrant` itself
+before `ansible_local` reads the playbook.
+
+On a host running UFW, allow the libvirt bridge. Without these rules the guest never receives a
+DHCP lease and cannot reach the package mirrors:
+
+```bash
+sudo ufw allow in on virbr1
+sudo ufw allow out on virbr1
+sudo ufw route allow in on virbr1 out on "$(ip route show default | awk '{print $5; exit}')"
+```
+
+A successful run ends with `failed=0`, and a second `vagrant provision` on the same VM is
+idempotent: the recap should show no meaningful changes.
+
 ## Notes and safety
 
 - `ohmyzsh` manages `~/.zshrc`. The previous file is backed up next to it as
