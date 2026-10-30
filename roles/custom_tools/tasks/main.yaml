@@ -1,36 +1,39 @@
-- name: "{{ name }} binary directory"
+---
+- name: "Create the installation directory for {{ custom_tools_name }}"
   become: true
-  file:
-    path: "{{ lib_dir }}/{{ name }}-{{ version }}"
+  ansible.builtin.file:
+    path: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}"
     state: directory
-    recurse: yes
-
-- name: "{{ name }} download"
-  become: true
-  get_url:
-    url: "{{ src_url | replace('%', version) }}"
-    dest: "{{ lib_dir }}/{{ name }}-{{ version }}/{{ src_url | basename }}"
     mode: "0755"
-  when: unarchive | bool == false
 
-- name: "{{ name }} unarchive"
+- name: "Download the binary for {{ custom_tools_name }}"
   become: true
-  unarchive:
-    src: "{{ src_url | replace('%', version) }}"
-    dest: "{{ lib_dir }}/{{ name }}-{{ version }}/"
-    remote_src: yes
-    creates: "{{ name }}-{{ version }}/{{ target }}"
-  when: unarchive | bool == true
+  ansible.builtin.get_url:
+    url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
+    dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_src_url | basename }}"
+    mode: "0755"
+  when: not (custom_tools_unarchive | bool)
 
-- name: "{{ name }} symlink"
+- name: "Download and extract {{ custom_tools_name }}"
   become: true
-  file:
-    src: "{{ lib_dir }}/{{ name }}-{{ version }}/{{ target | default(src_url | basename) }}"
-    path: "{{ bin_dir }}/{{ name }}"
+  ansible.builtin.unarchive:
+    src: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
+    dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/"
+    remote_src: true
+    creates: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target }}"
+  when: custom_tools_unarchive | bool
+
+- name: "Create the bin symlink for {{ custom_tools_name }}"
+  become: true
+  ansible.builtin.file:
+    src: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target | default(custom_tools_src_url | basename) }}"
+    path: "{{ custom_tools_bin_dir }}/{{ custom_tools_name }}"
     state: link
 
-- name: "{{ name }} completion"
-  lineinfile:
-    path: ~/.bashrc
-    line: "{{ completion }}"
-  when: completion is defined
+- name: "Add the shell completion for {{ custom_tools_name }}"
+  ansible.builtin.lineinfile:
+    path: "{{ home }}/.bashrc"
+    line: "{{ custom_tools_completion }}"
+    create: true
+    mode: "0644"
+  when: custom_tools_completion is defined

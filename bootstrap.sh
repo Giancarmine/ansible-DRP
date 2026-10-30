@@ -1,25 +1,20 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Installs the minimum tooling needed to run this repository's playbook.
+# Safe to run more than once.
+set -euo pipefail
 
-if [ ! "$HOME" == "$PWD" ]; then
-  echo "This script is intended to be run from the user's home path: $HOME"
-  exit 1
+cd "$(dirname "$0")"
+
+if ! command -v ansible-playbook >/dev/null 2>&1; then
+    echo "Installing Ansible from the Ubuntu repositories..."
+    sudo apt-get update
+    sudo apt-get install --assume-yes ansible git
 fi
 
-# BOOTSTRAP
+echo "Installing Ansible collections..."
+ansible-galaxy collection install --requirements-file requirements.yml
 
-# Add apt repositories
-if ! grep -q "ansible/ansible" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
-  sudo apt-add-repository ppa:ansible/ansible
-fi
-if ! grep -q "git-core/ppa" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
-  sudo apt-add-repository ppa:git-core/ppa
-fi
-
-# Upgrade packages
-sudo apt-get update
-sudo apt-get --assume-yes upgrade
-
-# Install Ansible & Git
-sudo apt-get --assume-yes install ansible
-sudo apt-get --assume-yes install git
+echo
+echo "Ansible $(ansible --version | head -n 1 | awk '{print $2}') is ready."
+echo "Next: ansible-playbook ubuntu.yml"
+echo "Preview changes first with: ansible-playbook ubuntu.yml --check --diff"

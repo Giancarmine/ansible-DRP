@@ -1,4 +1,4 @@
 ---
-lib_dir: /usr/local/lib
-bin_dir: /usr/local/bin
-unarchive: false
+custom_tools_lib_dir: /usr/local/lib
+custom_tools_bin_dir: /usr/local/bin
+custom_tools_unarchive: false

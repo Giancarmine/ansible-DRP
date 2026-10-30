@@ -1,2 +1,7 @@
 .vagrant/
 .idea/
+.ansible/
+*.retry
+__pycache__/
+.venv/
+inventory.local

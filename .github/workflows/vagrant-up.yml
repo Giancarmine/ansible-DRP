@@ -1,19 +1,28 @@
-name: vagrant-up
+---
+name: Vagrant
 
-on: [push]
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vagrant-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   vagrant-up:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Set up vagrant and libvirt
+      - name: Set up Vagrant and libvirt
         uses: ./.github/actions/vagrant-setup
 
       - name: Cache Vagrant boxes
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.vagrant.d/boxes
           key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
@@ -23,5 +32,5 @@ jobs:
       - name: Show Vagrant version
         run: vagrant --version
 
-      - name: Run vagrant up
+      - name: Provision the VM
         run: vagrant up

@@ -1,19 +1,23 @@
-# roles/ohmyzsh/templates/zshrc.j2
+# Managed by ansible-DRP. The previous file is kept next to this one as a
+# timestamped backup.
+export ZSH="$HOME/.oh-my-zsh"
 
-export PATH="$HOME/bin:$PATH"
-export HIST_STAMPS='yyyy-mm-dd HH:MM:ss'
-export HISTSIZE=10000
-export SAVEHIST=10000
+ZSH_THEME="robbyrussell"
 
 plugins=(
   git
   zsh-autosuggestions
   zsh-syntax-highlighting
+  zsh-history-substring-search
 )
 
-ZSH_THEME="robbyrussell"
+source "$ZSH/oh-my-zsh.sh"
 
-source $HOME/.oh-my-zsh/lib/theme-and-apPEARance.zsh
-source $HOME/.oh-my-zsh/lib/key-bindings.zsh
+export PATH="$HOME/bin:/usr/local/bin:$PATH"
+export HIST_STAMPS="yyyy-mm-dd HH:MM:ss"
+export HISTSIZE=10000
+export SAVEHIST=10000
 
-autoload -U compinit && compinit
+# Arrow keys search the history for the already-typed prefix.
+bindkey '^[[A' history-substring-search-up
+bindkey '^[[B' history-substring-search-down

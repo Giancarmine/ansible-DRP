@@ -1,39 +1,46 @@
-
 ---
-- name: "{{ name }} apt signing key"
+- name: "Create the keyring directory for {{ custom_apt_name }}"
   become: true
-  block:
-    - name: "{{ name }} apt signing key from url"
-      become: true
-      ansible.builtin.apt_key:
-        state: present
-        url: "{{ key.url }}"
-        keyring: "{{ key.keyring }}"
-        id: "{{ key.id if key.id is defined else '' }}"
-      when: key.url is defined
-    - name: "{{ name }} apt signing key from keyserver"
-      become: true
-      ansible.builtin.apt_key:
-        state: present
-        id: "{{ key.id }}"
-        keyring: "{{ key.keyring }}"
-        keyserver: "{{ key.keyserver }}"
-      when: key.keyserver is defined
-  when: key is defined
+  ansible.builtin.file:
+    path: "{{ custom_apt_key.keyring | dirname }}"
+    state: directory
+    mode: "0755"
+  when: custom_apt_key is defined and custom_apt_key.keyring is defined
 
-- name: "{{ name }} apt repository"
+- name: "Download the signing key for {{ custom_apt_name }}"
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ custom_apt_key.url }}"
+    dest: "{{ custom_apt_key.keyring }}"
+    mode: "0644"
+  when: custom_apt_key is defined and custom_apt_key.url is defined
+
+- name: "Import the signing key from a keyserver for {{ custom_apt_name }}"
+  become: true
+  ansible.builtin.apt_key:
+    id: "{{ custom_apt_key.id }}"
+    keyring: "{{ custom_apt_key.keyring }}"
+    keyserver: "{{ custom_apt_key.keyserver }}"
+    state: present
+  when: custom_apt_key is defined and custom_apt_key.keyserver is defined
+
+- name: "Add the APT repository for {{ custom_apt_name }}"
   become: true
   ansible.builtin.apt_repository:
     state: present
-    repo: "deb [{{ options | join(' ')}}] {{ repo }}"
-    filename: "{{ name }}"
+    repo: "deb [{{ options | join(' ') }}] {{ custom_apt_repo }}"
+    filename: "{{ custom_apt_name }}.list"
   vars:
-    options: "{{ (['arch=' + arch] if arch is defined else []) + (['signed-by=' + key.keyring] if key is defined else []) }}"
+    options: >-
+      {{
+        (['arch=' + custom_apt_arch] if custom_apt_arch is defined else [])
+        + (['signed-by=' + custom_apt_key.keyring] if custom_apt_key is defined and custom_apt_key.keyring is defined else [])
+      }}
 
-- name: "{{ name }} install package"
+- name: "Install the package for {{ custom_apt_name }}"
   become: true
-  apt:
-    name: "{{ package }}"
+  ansible.builtin.apt:
+    name: "{{ custom_apt_package }}"
     state: present
-    update_cache: no
-  when: package is defined
+    update_cache: true
+  when: custom_apt_package is defined

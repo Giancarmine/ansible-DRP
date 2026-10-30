@@ -1,0 +1,2 @@
+---
+custom_apt_arch: "{{ arch }}"

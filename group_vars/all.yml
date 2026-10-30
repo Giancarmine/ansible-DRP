@@ -1,43 +1,41 @@
-username: "{{ lookup('env', 'USER') }}"
-home: /home/{{ lookup('env', 'USER') }}
+---
+# The playbook can target this machine or a remote host. Both values come from
+# facts, so they follow the connection user instead of the controller's shell.
+username: "{{ ansible_user_id }}"
+home: "{{ ansible_env.HOME }}"
 
+# Host architecture used to pick upstream release assets.
+arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+topgrade_arch: "{{ 'aarch64' if ansible_architecture == 'aarch64' else 'x86_64' }}"
+
+# Packages installed by the base and docker roles.
 packages_apt:
-  - wget
   - copyq
   - curl
   - fwupd
   - git
-  - zip
-  - unrar
-  - unzip
   - net-tools
   - python3-pip
   - software-properties-common
+  - unrar
+  - unzip
+  - wget
+  - zip
+
+packages_pip: []
 
 packages_snap: []
 
-# k8s packages
-kops_version: 1.22.5
-kubectl_version: 1.23.13
-kubelogin_version: 1.25.1
-istioctl_version: 1.11.8
-helm_version: 3.9.3
-kustomize_version: 4.0.4
+docker_packages:
+  - docker.io
+  - docker-compose-v2
 
-targzs:
-  toolbox:
-    name: "Jetbrains toolbox"
-    url: "https://download.jetbrains.com/toolbox/jetbrains-toolbox-1.22.10774.tar.gz"
-    target_dir: "{{ home }}"
-    original_dir: "jetbrains-toolbox-1.22.10774"
-    symlinked_dir: "jetbrains-toolbox"
-
-binaries:
-  docker_compose:
-    name: docker-compose
-    url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
-    zsh_completion: https://raw.githubusercontent.com/docker/compose/$(docker-compose --version | awk 'NR==1{print $NF}')/contrib/completion/zsh/_docker-compose
-
-oh_my_zsh_version: 0.9.20
-
-topgrade_version: "15.0.0"
+# CLI versions installed by the k8s_tools and topgrade roles. Bump these
+# deliberately; the CI lint job checks the playbook, not upstream releases.
+kops_version: "1.36.2"
+kubectl_version: "1.37.2"
+kubelogin_version: "1.36.4"
+istioctl_version: "1.31.3"
+helm_version: "4.3.1"
+kustomize_version: "5.8.3"
+topgrade_version: "17.14.1"

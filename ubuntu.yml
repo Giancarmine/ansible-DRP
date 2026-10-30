@@ -1,19 +1,18 @@
 ---
-- name: Configuring Local Environment - El_Giancar
+- name: Configure an Ubuntu workstation
   hosts: all
-  connection: local
-  environment:
-    NETRC: "/dev/null"
+  gather_facts: true
+
   roles:
     - role: base
+      tags: [base]
     - role: ohmyzsh
+      tags: [ohmyzsh, shell]
     - role: topgrade
+      tags: [topgrade]
     - role: docker
+      tags: [docker]
     - role: k8s_tools
+      tags: [k8s_tools, kubernetes]
     - role: vscode
-  handlers:
-    - name: Restart Galaxy
-      supervisorctl:
-        name: galaxy
-        state: restarted
-      listen: restart galaxy
+      tags: [vscode]

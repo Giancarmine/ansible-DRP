@@ -1,19 +1,15 @@
 ---
 - name: Microsoft Visual Studio Code
-  include_role:
+  ansible.builtin.include_role:
     name: custom_apt
     apply:
-      tags:
-        - vscode
-    public: no
+      tags: [vscode]
+    public: false
   vars:
-    name: vscode
-    key:
-      id: BC528686B50D79E339D3721CEB3E94ADBE1229CF
+    custom_apt_name: vscode
+    custom_apt_key:
       url: https://packages.microsoft.com/keys/microsoft.asc
-      keyring: /etc/apt/trusted.gpg.d/packages.microsoft.gpg
-    arch: amd64
-    repo: https://packages.microsoft.com/repos/code stable main
-    package: code
-  tags:
-    - vscode
+      keyring: /etc/apt/keyrings/vscode.asc
+    custom_apt_repo: https://packages.microsoft.com/repos/code stable main
+    custom_apt_package: code
+  tags: [vscode]

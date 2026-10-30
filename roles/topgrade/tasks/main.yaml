@@ -1,0 +1,10 @@
+---
+- name: Install Topgrade
+  become: true
+  ansible.builtin.unarchive:
+    src: "https://github.com/topgrade-rs/topgrade/releases/download/v{{ topgrade_version }}/topgrade-v{{ topgrade_version }}-{{ topgrade_arch }}-unknown-linux-gnu.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    creates: /usr/local/bin/topgrade
+    mode: "0755"
+  tags: [topgrade]

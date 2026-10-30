@@ -1,0 +1,8 @@
+# Default target: the machine running ansible-playbook.
+#
+# To provision a remote machine, replace this file (or pass -i) with:
+#
+#   [workstations]
+#   my-host ansible_host=192.0.2.10 ansible_user=ubuntu
+[local]
+localhost ansible_connection=local

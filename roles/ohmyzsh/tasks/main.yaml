@@ -1,79 +1,47 @@
 ---
-- name: Install Oh My Zsh
+- name: Install zsh
   become: true
-  apt:
+  ansible.builtin.apt:
     name: zsh
     state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [zsh]
 
 - name: Clone Oh My Zsh
-  become: true
-  git:
-    repo: https://github.com/ohmyzsh/oh-my-zsh.git
-    dest: ~/.oh-my-zsh
-    recursive: yes
+  ansible.builtin.git:
+    repo: https://github.com/ohmyzsh/ohmyzsh.git
+    dest: "{{ home }}/.oh-my-zsh"
+    version: master
+    depth: 1
+  tags: [zsh]
 
-- name: Clone zsh-autosuggestions
-  become: true
-  git:
-    repo: https://github.com/zsh-users/zsh-autosuggestions
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
-    recursive: yes
+- name: Clone zsh plugins
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ home }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
+    version: master
+    depth: 1
+  loop:
+    - name: zsh-autosuggestions
+      repo: https://github.com/zsh-users/zsh-autosuggestions.git
+    - name: zsh-syntax-highlighting
+      repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    - name: zsh-history-substring-search
+      repo: https://github.com/zsh-users/zsh-history-substring-search.git
+  tags: [zsh]
 
-- name: Clone zsh-syntax-highlighting
+- name: Set zsh as the default shell
   become: true
-  git:
-    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-    recursive: yes
-
-- name: Clone zsh-history-substring-search
-  become: true
-  git:
-    repo: https://github.com/zsh-users/zsh-history-substring-search
-    dest: ~/.oh-my-zsh/custom/plugins/zsh-history-substring-search
-    recursive: yes
-
-- name: Set Zsh as default shell
-  become: true
-  user:
+  ansible.builtin.user:
     name: "{{ username }}"
     shell: /bin/zsh
+  tags: [zsh]
 
-- name: Ensure .zshrc file exists
-  become: true
-  stat:
-    path: "{{ home }}/.zshrc"
-  register: zshrc_stat
-  
-- name: Create .zshrc file if it doesn't exist
-  become: true
-  file:
-    path: "{{ home }}/.zshrc"
-    state: touch
-  when: not zshrc_stat.stat.exists
-
-- name: Configure Oh My Zsh
-  become: true
-  template:
+- name: Configure .zshrc
+  ansible.builtin.template:
     src: zshrc.j2
     dest: "{{ home }}/.zshrc"
-    mode: '0644'
-  
-- name: Reload shell
-  become: true
-  shell: |
-    echo "Reloading shell..."
-    if [[ -n "$SHELL" ]]; then
-      eval "$(echo $SHELL)"
-    fi
-    if [[ -n "$HOME" ]]; then
-      cd ~
-    fi
-    if [[ -f ~/.zshrc ]]; then
-      source ~/.zshrc
-    else
-      echo "Warning: .zshrc file not found."
-    fi
-  args:
-    executable: /bin/bash
-    creates: "{{ home }}/.zshrc"
+    mode: "0644"
+    backup: true
+  tags: [zsh]

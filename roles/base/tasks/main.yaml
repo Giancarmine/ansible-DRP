@@ -1,18 +1,25 @@
 ---
-# Install APT packages
 - name: Install APT packages
   become: true
-  apt:
+  ansible.builtin.apt:
     name: "{{ packages_apt }}"
-    update_cache: yes
-  tags:
-    - apt
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [apt]
 
-# Install SNAP packages
+- name: Install PIP packages
+  become: true
+  ansible.builtin.pip:
+    name: "{{ packages_pip }}"
+    state: present
+  when: packages_pip | length > 0
+  tags: [pip]
+
 - name: Install SNAP packages
   become: true
-  snap:
+  community.general.snap:
     name: "{{ packages_snap }}"
-    classic: yes
-  tags:
-    - snap
+    classic: true
+  when: packages_snap | length > 0
+  tags: [snap]

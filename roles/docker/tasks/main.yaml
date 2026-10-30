@@ -1,24 +1,26 @@
 ---
-- name: Docker
+- name: Install Docker packages
   become: true
-  block:
-  - name: Install Docker
-    apt:
-      name: docker.io
-  - name: Configure Docker
-    template:
-      src: etc/docker/daemon.json.j2
-      dest: /etc/docker/daemon.json
-    register: docker_configuration
-  - name: Docker service
-    systemd:
-      name: docker
-      state: restarted
-    when: docker_configuration.changed
-  - name: Docker group assign
-    user:
-      name: "{{ username }}"
-      groups: docker
-      append: yes
-  tags:
-    - docker
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [docker]
+
+- name: Configure the Docker daemon
+  become: true
+  ansible.builtin.template:
+    src: etc/docker/daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  notify: Restart Docker
+  tags: [docker]
+
+- name: Add the user to the docker group
+  become: true
+  ansible.builtin.user:
+    name: "{{ username }}"
+    groups: docker
+    append: true
+  tags: [docker]
