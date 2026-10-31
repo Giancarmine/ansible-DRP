@@ -8,7 +8,9 @@ One playbook installs a baseline set of CLI tools, zsh + Oh My Zsh, Docker + Com
 Kubernetes CLI stack, VS Code and Topgrade. It runs against the local machine or a remote host
 over SSH.
 
-Tested on **Ubuntu 24.04 (64-bit)**.
+Tested on **Ubuntu 22.04, 24.04 and 26.04 (64-bit)**. The end-to-end Vagrant test reads the
+supported releases from [`ci/ubuntu-versions.yml`](ci/ubuntu-versions.yml), so another release
+can be added without touching the playbook.
 
 ## What you get
 
@@ -28,12 +30,12 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ### Target machine
 
-- Ubuntu 24.04, 64-bit (amd64 or arm64).
+- Ubuntu 22.04, 24.04 or 26.04, 64-bit (amd64 or arm64). The Vagrant matrix covers all three;
+  release assets are published for amd64 and arm64.
 - A user with `sudo`. The playbook uses `become` for system changes and works with either
   passwordless sudo or `-K`.
 - Outbound access to:
   - `archive.ubuntu.com` and `security.ubuntu.com` for APT packages
-  - `ppa.launchpadcontent.net` when Vagrant installs Ansible inside the guest
   - `github.com` and `objects.githubusercontent.com` for tool releases, Oh My Zsh and plugins
   - `dl.k8s.io` (kubectl) and `get.helm.sh` (Helm)
   - `packages.microsoft.com` for VS Code
@@ -49,8 +51,10 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ### Vagrant VM (optional)
 
-The VM path needs Vagrant, libvirt/QEMU and `vagrant-libvirt` on the host. Host setup is
-covered in [Vagrant VM (libvirt)](#vagrant-vm-libvirt).
+The VM path needs Vagrant, libvirt/QEMU, `vagrant-libvirt` and Ansible on the host. The
+`Vagrantfile` uses the host controller instead of installing Ansible in the guest, so the same
+pinned `ansible-core` runs against every Ubuntu release. Host setup is covered in
+[Vagrant VM (libvirt)](#vagrant-vm-libvirt).
 
 ## Quick start
 
@@ -151,6 +155,10 @@ These are advanced knobs used by the helper roles. The defaults are usually corr
 | Variable | Default | Purpose |
 |---|---|---|
 | `custom_apt_arch` | `{{ arch }}` | Architecture segment in APT repository URLs |
+| `custom_apt_name` | required | Repository name; also the `.list` filename under `/etc/apt/sources.list.d` |
+| `custom_apt_key` | required for signed repositories | `{url, keyring, checksum}`; `url` and `keyring` are required, `checksum` is an optional `sha256:` value verified by `get_url` |
+| `custom_apt_repo` | required | Repository line without the `deb` prefix or options |
+| `custom_apt_package` | required | Package installed after the repository is added |
 | `custom_tools_lib_dir` | `/usr/local/lib` | Destination for extracted tool archives |
 | `custom_tools_bin_dir` | `/usr/local/bin` | Destination for tool symlinks |
 | `custom_tools_unarchive` | `false` | Force archive extraction instead of a single binary |
@@ -165,6 +173,22 @@ ansible-playbook ubuntu.yml --tags docker \
   --extra-vars '{"docker_daemon":{"log-driver":"local"}}'
 ```
 
+`custom_apt` writes a `signed-by=<keyring>` option only when a key is configured and an
+`arch=<arch>` option only when `custom_apt_arch` is set. It never falls back to the deprecated
+`apt_key` module: update the keyring URL instead of importing a key into the global APT trust
+store.
+
+### Tag prerequisites
+
+Every per-tool tag installs the package it needs before using it:
+
+- `kubelogin` installs `unzip`, because kubelogin ships as a ZIP archive.
+- `zsh`, `ohmyzsh` and `shell` install `zsh` and `git`, because the role clones the framework and
+  its plugins from GitHub.
+
+`base` still installs the full CLI baseline, but `--tags kubelogin` or `--tags ohmyzsh` works on
+a fresh machine without running `base` first.
+
 ## Project layout
 
 ```
@@ -176,7 +200,9 @@ requirements-dev.txt         pinned lint toolchain
 ubuntu.yml                   the playbook
 bootstrap.sh                 installs Ansible and the collection
 group_vars/all.yml           packages, versions, checksums, architecture
+ci/verify-checksums.py       verifies or updates the pinned release checksums
 ci/verify-vm.sh              checks the tools inside the provisioned VM
+ci/ubuntu-versions.yml       Ubuntu releases and boxes used by the Vagrant test
 roles/
 ├── base/                    APT/pip/snap packages
 ├── custom_apt/              adds an APT repository with a signed key
@@ -202,17 +228,37 @@ ansible-galaxy collection install -r requirements.yml
 yamllint .
 ansible-lint                 # production profile, strict mode
 ansible-playbook --syntax-check ubuntu.yml
+ruby -c Vagrantfile          # Vagrantfile syntax
+python ci/verify-checksums.py
 actionlint                   # GitHub Actions
-shellcheck bootstrap.sh ci/verify-vm.sh
+shellcheck bootstrap.sh ci/verify-vm.sh roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
 ```
 
-The lint toolchain and the `community.general` collection are pinned, so a new upstream release
-cannot turn `main` red without a deliberate update. Dependabot opens weekly PRs for the Actions
-and Python pins; the collection version is bumped in `requirements.yml`.
+The lint toolchain, the `community.general` collection, shellcheck and actionlint are pinned, so
+a new upstream release cannot turn `main` red without a deliberate update. Dependabot opens
+weekly PRs for the Actions and Python pins; the collection version is bumped in
+`requirements.yml`.
+
+### Release checksums
+
+`ci/verify-checksums.py` downloads the upstream checksum file for every `(tool, architecture)`
+pair in `release_checksums` and fails when a pinned hash differs. Topgrade publishes no checksum
+file, so the script downloads and hashes that archive instead.
+
+When you bump a version in `group_vars/all.yml`:
+
+```bash
+# Review the new release first, then refresh the pinned hashes.
+python ci/verify-checksums.py --update
+git diff group_vars/all.yml
+python ci/verify-checksums.py   # must pass with no changes
+```
+
+The CI job runs the script on every push, so a stale hash is caught before it reaches a VM.
 
 For a real end-to-end run, use the disposable Vagrant VM. It is libvirt-only: the shared folder
-uses 9p and the box is `alvistack/ubuntu-24.04`, pinned to `20260108.1.1` in the `Vagrantfile`.
-The `cloud-image/ubuntu-24.04` box never receives a cloud-init datasource under libvirt, so it
+uses 9p and the box comes from `ci/ubuntu-versions.yml`, pinned by release and version. The
+`cloud-image/ubuntu-24.04` box never receives a cloud-init datasource under libvirt, so it
 boots without networking or SSH.
 
 The same run is available as the **Vagrant** workflow. It runs on demand and weekly (Monday
@@ -220,20 +266,54 @@ The same run is available as the **Vagrant** workflow. It runs on demand and wee
 CI validates the playbook statically on every commit; the VM test is the slower end-to-end
 check.
 
+### Multiple Ubuntu releases
+
+[`ci/ubuntu-versions.yml`](ci/ubuntu-versions.yml) is the single source of truth for the VM test:
+
+```yaml
+versions:
+  - release: "24.04"
+    box: alvistack/ubuntu-24.04
+    box_version: "20260108.1.1"
+    enabled: true
+```
+
+- The `Vagrantfile` selects the entry named by `UBUNTU_VERSION`, or the first enabled entry when
+  the variable is unset. The current default is 24.04.
+- The **Vagrant** workflow builds its job matrix from the enabled entries, so each release runs in
+  its own job with its own log artifact.
+- `enabled: false` keeps a candidate box in the file without running it.
+
+The repository currently enables 22.04, 24.04 and 26.04:
+`alvistack/ubuntu-22.04` 20260108.1.1, `alvistack/ubuntu-24.04` 20260108.1.1 and
+`alvistack/ubuntu-26.04` 20260516.1.1.
+
+To add another release, download and boot its box, run the full
+`vagrant up` / `ci/verify-vm.sh` / `vagrant provision` sequence, then append an entry with
+`enabled: true` and push. No playbook, Vagrantfile or workflow change is needed. The playbook
+asserts the guest architecture, and the host controller comes from `requirements-dev.txt`, so
+the same Ansible version tests every release.
+
 ### Automated Vagrant test
 
 Trigger **Actions → Vagrant → Run workflow**, or use the GitHub CLI:
 
 ```bash
+# Every enabled release in ci/ubuntu-versions.yml
 gh workflow run vagrant-up.yml -f verify-idempotence=true
+
+# One release
+gh workflow run vagrant-up.yml -f ubuntu-version=24.04
 ```
 
-The job installs the libvirt host stack with the pinned `vagrant-libvirt` 0.12.2, checks KVM,
-runs `vagrant up`, executes `ci/verify-vm.sh` inside the guest, optionally re-provisions and
-requires `changed=0`, uploads the logs as the `vagrant-logs` artifact, and destroys the VM. It
-runs on `ubuntu-24.04` and fails fast if `/dev/kvm` is missing. GitHub-hosted runners currently
-expose KVM, but nested virtualization is not officially supported; use a self-hosted runner with
-KVM if you need a guaranteed host. A run takes about 5-10 minutes.
+The workflow first builds a matrix from `ci/ubuntu-versions.yml`, then runs one job per enabled
+release. Each job installs the pinned `ansible-core` on the host, sets up libvirt with the pinned
+`vagrant-libvirt` 0.12.2, checks KVM, runs `vagrant up`, executes `ci/verify-vm.sh` inside the
+guest, optionally re-provisions and requires `changed=0`, uploads the logs as
+`vagrant-logs-ubuntu-<release>`, and destroys the VM. It runs on `ubuntu-24.04` and fails fast if
+`/dev/kvm` is missing. GitHub-hosted runners currently expose KVM, but nested virtualization is
+not officially supported; use a self-hosted runner with KVM if you need a guaranteed host. A run
+takes about 5-10 minutes per release.
 
 `ci/verify-vm.sh` checks zsh/Oh My Zsh and that the managed `.zshrc` loads, the completion file,
 Docker + Compose plus daemon access as the login user, every pinned Kubernetes tool, VS Code and
@@ -330,21 +410,36 @@ stuck waiting for an IP, add the rules and restart networking in the guest
 
 ### 5. Run
 
+Install the pinned controller on the host before the first run:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
 ```bash
 vagrant up --provider=libvirt
 ```
 
-The first run downloads the box, boots the VM, mounts the 9p share, installs Ansible in the
-guest (from the official PPA) and runs `ubuntu.yml`. The guest uses the same playbook and
-`group_vars` as a normal run. Allow a few GB of disk: the box is about 2 GB and the VM disk is
-sparse. A successful run ends with:
+The first run downloads the box, boots the VM, mounts the 9p share and runs `ubuntu.yml` from the
+host over SSH. The guest only needs its target Python; the host controller version is the one in
+`requirements-dev.txt`, so every Ubuntu release is tested with the same Ansible. Allow a few GB
+of disk: the box is about 2 GB and the VM disk is sparse. A successful run ends with:
 
 ```
 PLAY RECAP
-default : ok=66  changed=44  unreachable=0  failed=0  skipped=17
+ubuntu-24.04 : ok=68  changed=44  unreachable=0  failed=0  skipped=16
 ```
 
-Re-running is safe and should report `changed=0`:
+To test another release, pass its version from `ci/ubuntu-versions.yml`:
+
+```bash
+UBUNTU_VERSION=22.04 vagrant up --provider=libvirt
+```
+
+Each release gets its own machine name, so switching back and forth does not reuse the previous
+release's disk. Re-running is safe and should report `changed=0`:
 
 ```bash
 vagrant provision
@@ -364,25 +459,31 @@ if the host has different resources.
 
 The box ships with cloud-init disabled. Vagrant's generated 9p mount metadata is therefore not
 applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fstab` entry before
-`ansible_local` runs.
+the Ansible provisioner runs.
 
 ### Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
-| `Waiting for domain to get an IP address...` for minutes | The host firewall is dropping DHCP or bridge traffic. Apply step 4, then check `virsh -c qemu:///system domifaddr ansible-DRP_default` and `journalctl -u libvirtd`. |
+| `Waiting for domain to get an IP address...` for minutes | The host firewall is dropping DHCP or bridge traffic. Apply step 4, then check `virsh -c qemu:///system domifaddr ansible-DRP_ubuntu-24.04` and `journalctl -u libvirtd`. |
 | `/vagrant` is empty or missing | 9p permission problem. Run `vagrant ssh -c 'dmesg --level=err,warn'` and verify step 3. |
 | `vagrant status` hangs | Another `vagrant` process holds the machine lock. Wait for it, or stop it before retrying. |
-| Ansible install fails in the guest | The guest has no egress. Re-check step 4 with `vagrant ssh -c 'curl -I https://archive.ubuntu.com'`. |
-| Guest boots to a `login:` prompt but Vagrant cannot SSH | The box is missing its cloud-init datasource or the network never came up. Use the pinned `alvistack/ubuntu-24.04` box from the bundled `Vagrantfile`. |
+| The guest cannot reach the package mirrors | The guest has no egress. Check step 4 with `vagrant ssh -c 'curl -I https://archive.ubuntu.com'`. |
+| Guest boots to a `login:` prompt but Vagrant cannot SSH | The box is missing its cloud-init datasource or the network never came up. Use a pinned `alvistack` box from `ci/ubuntu-versions.yml`. |
 
 ### Validated environment
 
 Validated end to end on 2026-10-31 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
-QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. A fresh `vagrant up` finished with
-`ok=66 changed=44 failed=0 skipped=17`; a second `vagrant provision` finished with
-`ok=61 changed=0 failed=0 skipped=22`. The **Vagrant** workflow repeats the same checks on an
-`ubuntu-24.04` GitHub-hosted runner in roughly 5-10 minutes.
+QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `alvistack` box:
+
+| Release | Box | Fresh run | Second provision |
+|---|---|---|---|
+| 22.04 | `alvistack/ubuntu-22.04` 20260108.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
+| 24.04 | `alvistack/ubuntu-24.04` 20260108.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
+| 26.04 | `alvistack/ubuntu-26.04` 20260516.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
+
+`ci/verify-vm.sh` passed on all three. The **Vagrant** workflow repeats the same checks on an
+`ubuntu-24.04` GitHub-hosted runner in roughly 5-10 minutes per release.
 
 ## Notes and safety
 
@@ -407,9 +508,10 @@ QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. A fresh `vagrant up` fini
   headless server or a minimal image without those components.
 - `host_key_checking` is enabled. Use `StrictHostKeyChecking=accept-new` in the inventory for the
   first connection to a new host.
-- The Vagrant box is pinned with `config.vm.box_version` for the same reason. Vagrant Cloud does
-  not publish a checksum for this box, so the version pin is the only integrity control. To move
-  to a newer box, update that line deliberately and re-run the end-to-end test before committing.
+- The Vagrant box is pinned by release and version in `ci/ubuntu-versions.yml` for the same
+  reason. Vagrant Cloud does not publish a checksum for these boxes, so the version pin is the
+  only integrity control. To move to a newer box, update that file deliberately and re-run the
+  end-to-end test before committing.
 - Test on a VM or a disposable host before running against a machine you care about.
 - The Vagrant workflow changes the host, not just the VM: libvirt group membership, the QEMU
   user in `/etc/libvirt/qemu.conf`, optional socket authentication in `/etc/libvirt/libvirtd.conf`
@@ -417,8 +519,6 @@ QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. A fresh `vagrant up` fini
 - `vagrant destroy -f` removes the VM and its disk, but leaves the downloaded box in
   `~/.vagrant.d/boxes`. Remove it with `vagrant box remove alvistack/ubuntu-24.04` if you no
   longer need it.
-- Vagrant replaces the box's insecure SSH key on first boot; `vagrant ssh` uses the generated
-  key in `.vagrant/`.
 
 ## Inspired by
 

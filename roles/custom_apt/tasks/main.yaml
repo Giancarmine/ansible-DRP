@@ -1,40 +1,43 @@
 ---
+- name: "Check the key configuration for {{ custom_apt_name }}"
+  ansible.builtin.assert:
+    that:
+      - custom_apt_key.url is defined
+      - custom_apt_key.keyring is defined
+    fail_msg: >-
+      custom_apt_key must define url and keyring for {{ custom_apt_name }}.
+    quiet: true
+  when: custom_apt_key is defined
+
 - name: "Create the keyring directory for {{ custom_apt_name }}"
   become: true
   ansible.builtin.file:
     path: "{{ custom_apt_key.keyring | dirname }}"
     state: directory
     mode: "0755"
-  when: custom_apt_key is defined and custom_apt_key.keyring is defined
+  when: custom_apt_key is defined
 
 - name: "Download the signing key for {{ custom_apt_name }}"
   become: true
   ansible.builtin.get_url:
     url: "{{ custom_apt_key.url }}"
     dest: "{{ custom_apt_key.keyring }}"
+    checksum: "{{ custom_apt_key.checksum | default(omit) }}"
     mode: "0644"
-  when: custom_apt_key is defined and custom_apt_key.url is defined
-
-- name: "Import the signing key from a keyserver for {{ custom_apt_name }}"
-  become: true
-  ansible.builtin.apt_key:
-    id: "{{ custom_apt_key.id }}"
-    keyring: "{{ custom_apt_key.keyring }}"
-    keyserver: "{{ custom_apt_key.keyserver }}"
-    state: present
-  when: custom_apt_key is defined and custom_apt_key.keyserver is defined
+  when: custom_apt_key is defined
 
 - name: "Add the APT repository for {{ custom_apt_name }}"
   become: true
-  ansible.builtin.apt_repository:
-    state: present
-    repo: "deb [{{ options | join(' ') }}] {{ custom_apt_repo }}"
-    filename: "{{ custom_apt_name }}.list"
+  ansible.builtin.copy:
+    dest: "/etc/apt/sources.list.d/{{ custom_apt_name }}.list"
+    content: |
+      deb{{ (' [' + (apt_options | join(' ')) + ']') if apt_options | length > 0 else '' }} {{ custom_apt_repo }}
+    mode: "0644"
   vars:
-    options: >-
+    apt_options: >-
       {{
         (['arch=' + custom_apt_arch] if custom_apt_arch is defined else [])
-        + (['signed-by=' + custom_apt_key.keyring] if custom_apt_key is defined and custom_apt_key.keyring is defined else [])
+        + (['signed-by=' + custom_apt_key.keyring] if custom_apt_key is defined else [])
       }}
 
 - name: "Install the package for {{ custom_apt_name }}"

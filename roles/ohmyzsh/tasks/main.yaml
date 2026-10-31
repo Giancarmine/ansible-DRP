@@ -1,8 +1,10 @@
 ---
-- name: Install zsh
+- name: Install zsh and git
   become: true
   ansible.builtin.apt:
-    name: zsh
+    name:
+      - zsh
+      - git
     state: present
     update_cache: true
     cache_valid_time: 3600

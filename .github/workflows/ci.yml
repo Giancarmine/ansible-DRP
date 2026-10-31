@@ -42,6 +42,12 @@ jobs:
       - name: Check playbook syntax
         run: ansible-playbook --syntax-check ubuntu.yml
 
+      - name: Check the Vagrantfile syntax
+        run: ruby -c Vagrantfile
+
+      - name: Verify the pinned release checksums
+        run: python ci/verify-checksums.py
+
       - name: Install actionlint
         run: |
           curl -fsSL -o /tmp/actionlint.tar.gz \
@@ -55,8 +61,13 @@ jobs:
 
       - name: Install shellcheck
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends shellcheck
+          curl -fsSL -o /tmp/shellcheck.tar.xz \
+            https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz
+          echo "6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87  /tmp/shellcheck.tar.xz" \
+            | sha256sum -c -
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
 
       - name: Lint shell scripts
-        run: shellcheck bootstrap.sh ci/verify-vm.sh
+        run: |
+          /tmp/shellcheck-v0.10.0/shellcheck \
+            bootstrap.sh ci/verify-vm.sh roles/k8s_tools/files/usr/local/bin/kustomize-wrapper

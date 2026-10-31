@@ -1,4 +1,13 @@
 ---
+- name: Install unzip for ZIP-based releases
+  become: true
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [k8s_tools, kubernetes, kubelogin]
+
 - name: Install kOps
   ansible.builtin.include_role:
     name: custom_tools

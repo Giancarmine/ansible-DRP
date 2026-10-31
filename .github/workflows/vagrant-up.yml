@@ -8,6 +8,10 @@ on:
         description: Run a second provision and require changed=0
         type: boolean
         default: true
+      ubuntu-version:
+        description: Ubuntu release to test, or "all" for every enabled release in ci/ubuntu-versions.yml
+        type: string
+        default: all
   schedule:
     # Weekly run: pinned release URLs can disappear, and upstream packages move.
     - cron: "0 4 * * 1"
@@ -24,12 +28,56 @@ env:
   VAGRANT_NO_COLOR: "1"
 
 jobs:
-  vagrant:
-    name: Provision and verify the VM
+  versions:
+    name: Collect the Ubuntu versions
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Build the matrix from ci/ubuntu-versions.yml
+        id: matrix
+        env:
+          UBUNTU_VERSION: ${{ inputs.ubuntu-version || 'all' }}
+        run: |
+          value=$(ruby -ryaml -rjson -e '
+            versions = YAML.load_file("ci/ubuntu-versions.yml").fetch("versions")
+            versions = versions.reject { |v| v["enabled"] == false }
+            requested = ENV.fetch("UBUNTU_VERSION", "all")
+            if requested != "all"
+              versions = versions.select { |v| v["release"] == requested }
+              raise "UBUNTU_VERSION=#{requested} is not enabled" if versions.empty?
+            end
+            puts JSON.generate(versions.map { |v| v.slice("release", "box", "box_version") })
+          ')
+          echo "value=${value}" >> "$GITHUB_OUTPUT"
+          echo "Matrix: ${value}"
+
+  vagrant:
+    name: Ubuntu ${{ matrix.release }}
+    needs: versions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    env:
+      UBUNTU_VERSION: ${{ matrix.release }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install Ansible on the host
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
 
       - name: Free disk space
         run: |
@@ -55,12 +103,14 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.vagrant.d/boxes
-          key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
+          key: ${{ runner.os }}-vagrant-${{ matrix.release }}-${{ matrix.box_version }}-${{ hashFiles('ci/ubuntu-versions.yml') }}
           restore-keys: |
+            ${{ runner.os }}-vagrant-${{ matrix.release }}-
             ${{ runner.os }}-vagrant-
 
       - name: Show versions
         run: |
+          ansible --version
           vagrant --version
           virsh --version
 
@@ -70,26 +120,28 @@ jobs:
       - name: Provision the VM
         run: |
           set -o pipefail
-          vagrant up --provider=libvirt 2>&1 | tee /tmp/vagrant-up.log
+          vagrant up --provider=libvirt 2>&1 | tee "/tmp/vagrant-${UBUNTU_VERSION}-up.log"
 
       - name: Verify the installed tools
         run: |
           set -o pipefail
           vagrant ssh -c 'bash /vagrant/ci/verify-vm.sh' \
-            2>&1 | tee /tmp/vagrant-verify.log
+            2>&1 | tee "/tmp/vagrant-${UBUNTU_VERSION}-verify.log"
 
       - name: Re-provision and check idempotence
         if: inputs.verify-idempotence || github.event_name == 'schedule'
         run: |
           set -o pipefail
-          vagrant provision 2>&1 | tee /tmp/vagrant-provision.log
-          grep -Eq 'failed=0' /tmp/vagrant-provision.log
-          grep -Eq 'changed=0' /tmp/vagrant-provision.log
+          vagrant provision 2>&1 | tee "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
+          grep -Eq 'failed=0' "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
+          grep -Eq 'changed=0' "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
 
       - name: Collect diagnostics
         if: failure()
         run: |
           {
+            echo "== ubuntu =="
+            echo "${UBUNTU_VERSION}"
             echo "== domains =="
             virsh -c qemu:///system list --all || true
             echo "== networks =="
@@ -100,14 +152,14 @@ jobs:
             sudo tail -n 100 /var/log/libvirt/qemu/*.log 2>/dev/null || true
             echo "== processes =="
             pgrep -af 'dnsmasq|qemu-system' || true
-          } > /tmp/vagrant-diagnostics.log 2>&1
-          cat /tmp/vagrant-diagnostics.log
+          } > "/tmp/vagrant-${UBUNTU_VERSION}-diagnostics.log" 2>&1
+          cat "/tmp/vagrant-${UBUNTU_VERSION}-diagnostics.log"
 
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: vagrant-logs
+          name: vagrant-logs-ubuntu-${{ matrix.release }}
           path: /tmp/vagrant-*.log
           if-no-files-found: ignore
           retention-days: 7
