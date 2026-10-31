@@ -1,10 +1,15 @@
 ---
 - name: Install Topgrade
-  become: true
-  ansible.builtin.unarchive:
-    src: "https://github.com/topgrade-rs/topgrade/releases/download/v{{ topgrade_version }}/topgrade-v{{ topgrade_version }}-{{ topgrade_arch }}-unknown-linux-gnu.tar.gz"
-    dest: /usr/local/bin
-    remote_src: true
-    creates: /usr/local/bin/topgrade
-    mode: "0755"
+  ansible.builtin.include_role:
+    name: custom_tools
+    apply:
+      tags: [topgrade]
+    public: false
+  vars:
+    custom_tools_name: topgrade
+    custom_tools_version: "{{ topgrade_version }}"
+    custom_tools_src_url: "https://github.com/topgrade-rs/topgrade/releases/download/v%/topgrade-v%-{{ topgrade_arch }}-unknown-linux-gnu.tar.gz"
+    custom_tools_target: topgrade
+    custom_tools_checksum: "{{ release_checksums.topgrade[topgrade_arch] }}"
+    custom_tools_unarchive: true
   tags: [topgrade]

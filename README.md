@@ -40,9 +40,12 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ### Controller (direct or remote runs)
 
-- Ansible 2.16 or newer (`bootstrap.sh` installs the Ubuntu package if Ansible is missing).
+- Ansible 2.16 or newer (`bootstrap.sh` installs the Ubuntu package if Ansible is missing and
+  fails with a clear message if the installed version is older).
 - `git` and `python3`.
 - The `community.general` collection, installed by `bootstrap.sh` from `requirements.yml`.
+- For local linting: install `requirements-dev.txt` (pinned `ansible-core`, `ansible-lint` and
+  `yamllint`).
 
 ### Vagrant VM (optional)
 
@@ -93,16 +96,17 @@ The default inventory targets `localhost`. Create a local inventory for a remote
 ```ini
 # inventory.local
 [workstations]
-devbox ansible_host=192.0.2.10 ansible_user=ubuntu
+devbox ansible_host=192.0.2.10 ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'
 ```
 
 ```bash
 ansible-playbook -i inventory.local ubuntu.yml
 ```
 
-The target user and home directory are read from Ansible facts (`ansible_user_id`,
-`ansible_env.HOME`), so the roles follow the SSH user rather than the user running Ansible.
-`inventory.local` is git-ignored.
+`accept-new` trusts the host key on the first connection and rejects a changed key later.
+Remove it once the key is in `known_hosts`. The target user and home directory are read from
+Ansible facts (`ansible_user_id`, `ansible_env.HOME`), so the roles follow the SSH user rather
+than the user running Ansible. `inventory.local` is git-ignored.
 
 ## Configuration
 
@@ -114,7 +118,7 @@ The target user and home directory are read from Ansible facts (`ansible_user_id
 |---|---|---|
 | `inventory` | `inventory` | Localhost unless another inventory is passed with `-i` |
 | `roles_path` | `roles` | Roles resolve from this repository |
-| `host_key_checking` | `False` | First SSH connection to a fresh host succeeds; re-enable it if you provision untrusted hosts |
+| `host_key_checking` | `True` | Host keys are verified. Add `ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'` to the inventory for a first connection |
 | `interpreter_python` | `auto_silent` | Finds the target's Python without extra warnings |
 | `retry_files_enabled` | `False` | No `*.retry` files are left behind |
 
@@ -126,11 +130,12 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 |---|---|---|
 | `packages_apt` | CLI baseline (git, curl, zip, `software-properties-common`, …) | APT packages installed by `base` |
 | `packages_pip` | `[]` | Optional pip packages |
-| `packages_snap` | `[]` | Optional snap packages |
+| `packages_snap` | `[]` | Optional snaps: strings for strict snaps, or `{name, classic}` maps |
 | `docker_packages` | `docker.io`, `docker-compose-v2` | Docker packages |
-| `docker_daemon` | `{}` | JSON written to `/etc/docker/daemon.json` |
-| `arch` | `amd64` or `arm64` from facts | Release asset architecture |
+| `docker_daemon` | `{}` | JSON written to `/etc/docker/daemon.json`, only when non-empty |
+| `arch` | `amd64` or `arm64` from facts | Release asset architecture; other architectures fail the assert |
 | `topgrade_arch` | `x86_64` or `aarch64` from facts | Topgrade asset architecture |
+| `release_checksums` | SHA256 per tool and architecture | Verified against every downloaded release asset |
 | `kops_version` | `1.36.2` | kOps version |
 | `kubectl_version` | `1.37.2` | kubectl version |
 | `kubelogin_version` | `1.36.4` | kubelogin version |
@@ -149,6 +154,8 @@ These are advanced knobs used by the helper roles. The defaults are usually corr
 | `custom_tools_lib_dir` | `/usr/local/lib` | Destination for extracted tool archives |
 | `custom_tools_bin_dir` | `/usr/local/bin` | Destination for tool symlinks |
 | `custom_tools_unarchive` | `false` | Force archive extraction instead of a single binary |
+| `custom_tools_checksum` | required | SHA256 of the release asset, verified by `get_url` |
+| `custom_tools_completion_file` | `~/.config/ansible-drp/completions.zsh` | Native zsh completion snippets sourced by `.zshrc` |
 | `k8s_tools_github_url` | `https://github.com` | Base URL for GitHub-hosted releases |
 
 Example override:
@@ -163,10 +170,12 @@ ansible-playbook ubuntu.yml --tags docker \
 ```
 ansible.cfg                  inventory path, roles path, defaults
 inventory                    localhost by default; copy for remote hosts
-requirements.yml             community.general collection
+requirements.yml             pinned community.general collection
+requirements-dev.txt         pinned lint toolchain
+.ansible-lint                production profile, strict mode
 ubuntu.yml                   the playbook
 bootstrap.sh                 installs Ansible and the collection
-group_vars/all.yml           packages, versions, architecture
+group_vars/all.yml           packages, versions, checksums, architecture
 ci/verify-vm.sh              checks the tools inside the provisioned VM
 roles/
 ├── base/                    APT/pip/snap packages
@@ -185,22 +194,31 @@ these two describe *how*.
 
 ## Testing
 
-The CI workflow runs on every push and pull request:
+The CI workflow runs on every push and pull request on `ubuntu-24.04`:
 
 ```bash
+pip install -r requirements-dev.txt
+ansible-galaxy collection install -r requirements.yml
 yamllint .
-ansible-lint
+ansible-lint                 # production profile, strict mode
 ansible-playbook --syntax-check ubuntu.yml
+actionlint                   # GitHub Actions
+shellcheck bootstrap.sh ci/verify-vm.sh
 ```
+
+The lint toolchain and the `community.general` collection are pinned, so a new upstream release
+cannot turn `main` red without a deliberate update. Dependabot opens weekly PRs for the Actions
+and Python pins; the collection version is bumped in `requirements.yml`.
 
 For a real end-to-end run, use the disposable Vagrant VM. It is libvirt-only: the shared folder
 uses 9p and the box is `alvistack/ubuntu-24.04`, pinned to `20260108.1.1` in the `Vagrantfile`.
 The `cloud-image/ubuntu-24.04` box never receives a cloud-init datasource under libvirt, so it
 boots without networking or SSH.
 
-The same run is available as the **Vagrant** workflow. It is manual because nested
-virtualization is slow and not always available on hosted runners. CI validates the playbook
-statically; it does not provision a machine on every commit.
+The same run is available as the **Vagrant** workflow. It runs on demand and weekly (Monday
+04:00 UTC), because nested virtualization is slow and not always available on hosted runners.
+CI validates the playbook statically on every commit; the VM test is the slower end-to-end
+check.
 
 ### Automated Vagrant test
 
@@ -210,16 +228,17 @@ Trigger **Actions → Vagrant → Run workflow**, or use the GitHub CLI:
 gh workflow run vagrant-up.yml -f verify-idempotence=true
 ```
 
-The job installs the libvirt host stack, checks KVM, runs `vagrant up`, executes
-`ci/verify-vm.sh` inside the guest, optionally re-provisions and requires `changed=0`, uploads
-the logs as the `vagrant-logs` artifact, and destroys the VM. It runs on `ubuntu-24.04` and
-fails fast if `/dev/kvm` is missing. GitHub-hosted runners currently expose KVM, but nested
-virtualization is not officially supported; use a self-hosted runner with KVM if you need a
-guaranteed host. A run takes about 7-10 minutes.
+The job installs the libvirt host stack with the pinned `vagrant-libvirt` 0.12.2, checks KVM,
+runs `vagrant up`, executes `ci/verify-vm.sh` inside the guest, optionally re-provisions and
+requires `changed=0`, uploads the logs as the `vagrant-logs` artifact, and destroys the VM. It
+runs on `ubuntu-24.04` and fails fast if `/dev/kvm` is missing. GitHub-hosted runners currently
+expose KVM, but nested virtualization is not officially supported; use a self-hosted runner with
+KVM if you need a guaranteed host. A run takes about 5-10 minutes.
 
-`ci/verify-vm.sh` checks zsh/Oh My Zsh, Docker + Compose, every pinned Kubernetes tool, VS Code
-and the base packages. The pinned versions are read from `group_vars/all.yml`, so bumping a
-version there also updates the assertion.
+`ci/verify-vm.sh` checks zsh/Oh My Zsh and that the managed `.zshrc` loads, the completion file,
+Docker + Compose plus daemon access as the login user, every pinned Kubernetes tool, VS Code and
+the base packages. The pinned versions are read from `group_vars/all.yml`, so bumping a version
+there also updates the assertion.
 
 ## Vagrant VM (libvirt)
 
@@ -231,18 +250,19 @@ stack and the provider plugin. Package names vary by distribution:
 ```bash
 # Debian/Ubuntu
 sudo apt install qemu-kvm libvirt-daemon-system libvirt-clients virtinst
-vagrant plugin install vagrant-libvirt
+vagrant plugin install vagrant-libvirt --plugin-version 0.12.2
 
 # Arch
 sudo pacman -S vagrant libvirt qemu-full virt-install
-vagrant plugin install vagrant-libvirt
+vagrant plugin install vagrant-libvirt --plugin-version 0.12.2
 ```
 
 ```bash
 sudo systemctl enable --now libvirtd
 ```
 
-KVM must be available (`ls /dev/kvm`).
+KVM must be available (`ls /dev/kvm`). The version is the one used by the Vagrant workflow and
+the validated run; newer provider versions may change boot or networking behaviour.
 
 ### 2. libvirt access for your user
 
@@ -321,7 +341,7 @@ sparse. A successful run ends with:
 
 ```
 PLAY RECAP
-default : ok=45  changed=36  unreachable=0  failed=0  skipped=12
+default : ok=66  changed=44  unreachable=0  failed=0  skipped=17
 ```
 
 Re-running is safe and should report `changed=0`:
@@ -359,9 +379,10 @@ applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fst
 ### Validated environment
 
 Validated end to end on 2026-10-31 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
-QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. The first `vagrant up` finished with
-`failed=0`; a second `vagrant provision` finished with `changed=0`. The **Vagrant** workflow
-repeated the same checks on an `ubuntu-24.04` GitHub-hosted runner in 7m17s.
+QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. A fresh `vagrant up` finished with
+`ok=66 changed=44 failed=0 skipped=17`; a second `vagrant provision` finished with
+`ok=61 changed=0 failed=0 skipped=22`. The **Vagrant** workflow repeats the same checks on an
+`ubuntu-24.04` GitHub-hosted runner in roughly 5-10 minutes.
 
 ## Notes and safety
 
@@ -369,11 +390,26 @@ repeated the same checks on an `ubuntu-24.04` GitHub-hosted runner in 7m17s.
   `.zshrc.<timestamp>` on the first change.
 - Adding the user to the `docker` group takes effect after a new login session.
 - The playbook installs packages but does not upgrade the system or reboot it.
-- The `docker` role restarts Docker only when `daemon.json` changes.
+- The `docker` role restarts Docker only when `daemon.json` changes. With the default empty
+  `docker_daemon`, an existing `/etc/docker/daemon.json` is left untouched.
 - Release versions are pinned deliberately. Bump the variables in `group_vars/all.yml`; the
-  `custom_tools` role downloads the matching amd64/arm64 asset.
-- The Vagrant box is pinned with `config.vm.box_version` for the same reason. To move to a newer
-  box, update that line deliberately and re-run the end-to-end test before committing it.
+  `custom_tools` role downloads the matching amd64/arm64 asset and verifies it against
+  `release_checksums`. A version bump must update the version and both architecture hashes.
+- `topgrade` uses the same versioned install as the Kubernetes tools, so bumping
+  `topgrade_version` replaces the binary instead of leaving the old one in place.
+- Shell completions are written to `~/.config/ansible-drp/completions.zsh` as native zsh
+  snippets and sourced by `.zshrc` after Oh My Zsh, so `compinit` is already loaded.
+- `packages_pip` uses the system Python. On Ubuntu 24.04, populate it only if you also provide a
+  venv or pass `--break-system-packages`; the default is empty.
+- `packages_snap` accepts strings for strict snaps, or `{name: foo, classic: true}` maps for
+  classic confinement.
+- `copyq` is a GUI application and `unrar` comes from multiverse. Trim `packages_apt` for a
+  headless server or a minimal image without those components.
+- `host_key_checking` is enabled. Use `StrictHostKeyChecking=accept-new` in the inventory for the
+  first connection to a new host.
+- The Vagrant box is pinned with `config.vm.box_version` for the same reason. Vagrant Cloud does
+  not publish a checksum for this box, so the version pin is the only integrity control. To move
+  to a newer box, update that line deliberately and re-run the end-to-end test before committing.
 - Test on a VM or a disposable host before running against a machine you care about.
 - The Vagrant workflow changes the host, not just the VM: libvirt group membership, the QEMU
   user in `/etc/libvirt/qemu.conf`, optional socket authentication in `/etc/libvirt/libvirtd.conf`

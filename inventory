@@ -3,6 +3,9 @@
 # To provision a remote machine, replace this file (or pass -i) with:
 #
 #   [workstations]
-#   my-host ansible_host=192.0.2.10 ansible_user=ubuntu
+#   my-host ansible_host=192.0.2.10 ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'
+#
+# `accept-new` trusts the host key on first contact and refuses a changed key
+# later. Remove it once the host key is already in known_hosts.
 [local]
 localhost ansible_connection=local

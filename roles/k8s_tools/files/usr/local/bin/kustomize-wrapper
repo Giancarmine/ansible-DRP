@@ -1,5 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-cat <&0 > all.yaml
+all_yaml="$(pwd)/all.yaml"
+trap 'rm -f "$all_yaml"' EXIT
 
-kustomize build . && rm all.yaml
+cat > "$all_yaml"
+kustomize build .

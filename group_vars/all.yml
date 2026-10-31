@@ -4,9 +4,10 @@
 username: "{{ ansible_user_id }}"
 home: "{{ ansible_env.HOME }}"
 
-# Host architecture used to pick upstream release assets.
-arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
-topgrade_arch: "{{ 'aarch64' if ansible_architecture == 'aarch64' else 'x86_64' }}"
+# Host architecture used to pick upstream release assets. The playbook asserts
+# that the target is x86_64 or aarch64 before these are evaluated.
+arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }}"
+topgrade_arch: "{{ {'x86_64': 'x86_64', 'aarch64': 'aarch64'}[ansible_architecture] }}"
 
 # Packages installed by the base and docker roles.
 packages_apt:
@@ -39,3 +40,30 @@ istioctl_version: "1.31.3"
 helm_version: "4.3.1"
 kustomize_version: "5.8.3"
 topgrade_version: "17.14.1"
+
+# SHA256 of every pinned release asset. `custom_tools` verifies the download
+# against these hashes, so a version bump must update the version and both
+# architecture hashes together. Topgrade uses its own asset naming, hence the
+# x86_64/aarch64 keys.
+release_checksums:
+  kops:
+    amd64: "0a497df3665569f07c76c31a245ab2cc69e1d327faf7805b83358fde5a4b8da1"
+    arm64: "a76472e9b4ca549202fda98bd706d593be550c203eb5b02c9fbbfd8c20dc5419"
+  kubectl:
+    amd64: "c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4"
+    arm64: "fcc16f63186659d9722014b7e02d5fdd2d4e669cb8c0ab66365d7d3b8ba03509"
+  helm:
+    amd64: "0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b"
+    arm64: "8cf8f66ecbc252ac8f7f06cca68aba88508ddfde3a6a34feb1678ad1694b4f88"
+  istioctl:
+    amd64: "382c3004ce2e9c5ed3064b092ae0da7f6bbe30c766a1be282f45725add004860"
+    arm64: "7476801623dbb900073cb1dba6a23b6a15c564b7e92b208aed36829315fefff1"
+  kubelogin:
+    amd64: "9e8baeb4905d35a301304af2548324997add512fe94ab20e65993d167212bf85"
+    arm64: "669c2d3bcc6766351ad5a7b03971792b4e7a55117b335a12d9858d43a525d9dc"
+  kustomize:
+    amd64: "cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61"
+    arm64: "9867b76482cfc6d25b546abc1d2b5a32bd137505aba640649b4b378f64f6d68f"
+  topgrade:
+    x86_64: "24a502f8414aa1223ad28670a746126c896f75a402428d664b51ec94055d4822"
+    aarch64: "1da541dd4451aa9c089f05413d53888b83528497af734e129661daf1577a4a43"

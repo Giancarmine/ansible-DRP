@@ -13,6 +13,12 @@ plugins=(
 
 source "$ZSH/oh-my-zsh.sh"
 
+# The k8s_tools role writes native zsh completions here. Loading them after
+# Oh My Zsh means compinit has already run.
+if [ -f "{{ home }}/.config/ansible-drp/completions.zsh" ]; then
+  source "{{ home }}/.config/ansible-drp/completions.zsh"
+fi
+
 export PATH="$HOME/bin:/usr/local/bin:$PATH"
 export HIST_STAMPS="yyyy-mm-dd HH:MM:ss"
 export HISTSIZE=10000

@@ -3,6 +3,17 @@
   hosts: all
   gather_facts: true
 
+  pre_tasks:
+    - name: Check the target architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in ['x86_64', 'aarch64']
+        fail_msg: >-
+          Unsupported architecture {{ ansible_architecture }}.
+          This playbook only provides amd64 and arm64 release assets.
+        quiet: true
+      tags: [always]
+
   roles:
     - role: base
       tags: [base]

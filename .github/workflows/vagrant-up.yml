@@ -8,6 +8,9 @@ on:
         description: Run a second provision and require changed=0
         type: boolean
         default: true
+  schedule:
+    # Weekly run: pinned release URLs can disappear, and upstream packages move.
+    - cron: "0 4 * * 1"
 
 permissions:
   contents: read
@@ -76,7 +79,7 @@ jobs:
             2>&1 | tee /tmp/vagrant-verify.log
 
       - name: Re-provision and check idempotence
-        if: inputs.verify-idempotence
+        if: inputs.verify-idempotence || github.event_name == 'schedule'
         run: |
           set -o pipefail
           vagrant provision 2>&1 | tee /tmp/vagrant-provision.log

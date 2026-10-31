@@ -14,6 +14,7 @@
     src: etc/docker/daemon.json.j2
     dest: /etc/docker/daemon.json
     mode: "0644"
+  when: docker_daemon | length > 0
   notify: Restart Docker
   tags: [docker]
 

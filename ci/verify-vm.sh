@@ -14,18 +14,21 @@ pass() {
 }
 
 expected_version() {
-  awk -F'"' -v key="^$1:" '$0 ~ key {print $2; exit}' "$GROUP_VARS"
+  local key=$1 value
+  value=$(awk -v key="${key}:" '$1 == key { gsub(/"/, "", $2); print $2; exit }' "$GROUP_VARS")
+  [ -n "$value" ] || fail "no ${key} in ${GROUP_VARS}"
+  printf '%s' "$value"
 }
 
 expect_output() {
-  local name=$1
-  local expected=$2
+  local name=$1 expected=$2
   shift 2
-  local output
+  local output pattern
   output=$("$@" 2>&1 || true)
-  printf '%s\n' "$output" | grep -q -- "$expected" \
-    || fail "$name: expected '$expected', got: $output"
-  pass "$name $expected"
+  pattern=${expected//./\\.}
+  printf '%s\n' "$output" | grep -Eq "(^|[^0-9.])${pattern}([^0-9.]|$)" \
+    || fail "$name: expected '${expected}', got: ${output}"
+  pass "$name ${expected}"
 }
 
 command -v zsh >/dev/null 2>&1 || fail "zsh is missing"
@@ -35,10 +38,22 @@ command -v zsh >/dev/null 2>&1 || fail "zsh is missing"
 for plugin in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
   [ -d "$HOME/.oh-my-zsh/custom/plugins/$plugin" ] || fail "missing zsh plugin $plugin"
 done
-pass "zsh, Oh My Zsh and plugins"
+zsh_startup_errors=$(zsh -ic true 2>&1 >/dev/null)
+[ -z "$zsh_startup_errors" ] || fail "zsh startup printed errors: ${zsh_startup_errors}"
+[ "$(zsh -ic 'printf %s "$ZSH_THEME"' 2>/dev/null)" = "robbyrussell" ] \
+  || fail "zsh does not load the managed .zshrc"
+[ -f "$HOME/.config/ansible-drp/completions.zsh" ] || fail "completion file is missing"
+grep -q "completions.zsh" "$HOME/.zshrc" || fail ".zshrc does not source the completion file"
+completion_functions=$(zsh -ic 'whence -w _kubectl _helm _kops _istioctl _kubelogin' 2>/dev/null)
+for function in _kubectl _helm _kops _istioctl _kubelogin; do
+  printf '%s\n' "$completion_functions" | grep -Fxq "$function: function" \
+    || fail "zsh completion $function is not loaded"
+done
+pass "zsh, Oh My Zsh, plugins and completions"
 
 command -v docker >/dev/null 2>&1 || fail "docker is missing"
 systemctl is-active --quiet docker || fail "docker service is not active"
+docker info >/dev/null 2>&1 || fail "cannot use the Docker daemon as $(id -un)"
 docker compose version >/dev/null 2>&1 || fail "docker compose is missing"
 id -nG | tr ' ' '\n' | grep -qx docker || fail "user is not in the docker group"
 pass "docker and compose"

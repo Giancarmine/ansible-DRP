@@ -1,0 +1,6 @@
+---
+profile: production
+strict: true
+exclude_paths:
+  - .vagrant/
+  - .github/

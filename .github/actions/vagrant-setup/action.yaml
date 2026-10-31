@@ -100,7 +100,7 @@ runs:
 
     - name: Install the vagrant-libvirt plugin
       shell: bash
-      run: vagrant plugin install vagrant-libvirt
+      run: vagrant plugin install vagrant-libvirt --plugin-version 0.12.2
 
     - name: Show host versions
       shell: bash

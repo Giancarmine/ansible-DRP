@@ -19,7 +19,9 @@
 - name: Install SNAP packages
   become: true
   community.general.snap:
-    name: "{{ packages_snap }}"
-    classic: true
+    name: "{{ item if item is string else item.name }}"
+    classic: "{{ false if item is string else item.classic | default(false) }}"
+    state: present
+  loop: "{{ packages_snap }}"
   when: packages_snap | length > 0
   tags: [snap]

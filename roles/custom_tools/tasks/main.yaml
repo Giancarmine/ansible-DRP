@@ -1,4 +1,14 @@
 ---
+- name: "Check the checksum for {{ custom_tools_name }}"
+  ansible.builtin.assert:
+    that:
+      - custom_tools_checksum is string
+      - custom_tools_checksum is match('^[0-9a-f]{64}$')
+    fail_msg: >-
+      custom_tools_checksum must be a lowercase SHA256 for
+      {{ custom_tools_name }}. Add the release hash to group_vars/all.yml.
+    quiet: true
+
 - name: "Create the installation directory for {{ custom_tools_name }}"
   become: true
   ansible.builtin.file:
@@ -9,30 +19,53 @@
 - name: "Download the binary for {{ custom_tools_name }}"
   become: true
   ansible.builtin.get_url:
-    url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
-    dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_src_url | basename }}"
+    url: "{{ custom_tools_url }}"
+    dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_url | basename }}"
+    checksum: "sha256:{{ custom_tools_checksum }}"
     mode: "0755"
   when: not (custom_tools_unarchive | bool)
+  vars:
+    custom_tools_url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
 
-- name: "Download and extract {{ custom_tools_name }}"
+- name: "Download the archive for {{ custom_tools_name }}"
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ custom_tools_url }}"
+    dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_url | basename }}"
+    checksum: "sha256:{{ custom_tools_checksum }}"
+    mode: "0644"
+  when: custom_tools_unarchive | bool
+  vars:
+    custom_tools_url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
+
+- name: "Extract {{ custom_tools_name }}"
   become: true
   ansible.builtin.unarchive:
-    src: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
+    src: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_url | basename }}"
     dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/"
     remote_src: true
-    creates: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target }}"
+    creates: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target | default(custom_tools_url | basename) }}"
   when: custom_tools_unarchive | bool
+  vars:
+    custom_tools_url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
 
 - name: "Create the bin symlink for {{ custom_tools_name }}"
   become: true
   ansible.builtin.file:
-    src: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target | default(custom_tools_src_url | basename) }}"
+    src: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_target | default((custom_tools_src_url | replace('%', custom_tools_version)) | basename) }}"
     path: "{{ custom_tools_bin_dir }}/{{ custom_tools_name }}"
     state: link
 
-- name: "Add the shell completion for {{ custom_tools_name }}"
+- name: "Create the completion directory for {{ custom_tools_name }}"
+  ansible.builtin.file:
+    path: "{{ custom_tools_completion_file | dirname }}"
+    state: directory
+    mode: "0755"
+  when: custom_tools_completion is defined
+
+- name: "Add the zsh completion for {{ custom_tools_name }}"
   ansible.builtin.lineinfile:
-    path: "{{ home }}/.bashrc"
+    path: "{{ custom_tools_completion_file }}"
     line: "{{ custom_tools_completion }}"
     create: true
     mode: "0644"

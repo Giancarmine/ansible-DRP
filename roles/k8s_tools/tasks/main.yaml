@@ -8,8 +8,9 @@
   vars:
     custom_tools_name: kops
     custom_tools_version: "{{ kops_version }}"
+    custom_tools_checksum: "{{ release_checksums.kops[arch] }}"
     custom_tools_src_url: "{{ k8s_tools_github_url }}/kubernetes/kops/releases/download/v%/kops-linux-{{ arch }}"
-    custom_tools_completion: "source <(kops completion bash --no-descriptions)"
+    custom_tools_completion: "source <(kops completion zsh --no-descriptions)"
     custom_tools_unarchive: false
   tags: [kops]
 
@@ -22,8 +23,9 @@
   vars:
     custom_tools_name: kubectl
     custom_tools_version: "{{ kubectl_version }}"
+    custom_tools_checksum: "{{ release_checksums.kubectl[arch] }}"
     custom_tools_src_url: "https://dl.k8s.io/release/v%/bin/linux/{{ arch }}/kubectl"
-    custom_tools_completion: "source <(kubectl completion bash)"
+    custom_tools_completion: "source <(kubectl completion zsh)"
     custom_tools_unarchive: false
   tags: [kubectl]
 
@@ -36,9 +38,10 @@
   vars:
     custom_tools_name: helm
     custom_tools_version: "{{ helm_version }}"
+    custom_tools_checksum: "{{ release_checksums.helm[arch] }}"
     custom_tools_src_url: "https://get.helm.sh/helm-v%-linux-{{ arch }}.tar.gz"
     custom_tools_target: "linux-{{ arch }}/helm"
-    custom_tools_completion: "source <(helm completion bash --no-descriptions)"
+    custom_tools_completion: "source <(helm completion zsh --no-descriptions)"
     custom_tools_unarchive: true
   tags: [helm]
 
@@ -51,8 +54,10 @@
   vars:
     custom_tools_name: istioctl
     custom_tools_version: "{{ istioctl_version }}"
+    custom_tools_checksum: "{{ release_checksums.istioctl[arch] }}"
     custom_tools_src_url: "{{ k8s_tools_github_url }}/istio/istio/releases/download/%/istioctl-%-linux-{{ arch }}.tar.gz"
     custom_tools_target: istioctl
+    custom_tools_completion: "source <(istioctl completion zsh)"
     custom_tools_unarchive: true
   tags: [istioctl]
 
@@ -65,8 +70,10 @@
   vars:
     custom_tools_name: kubelogin
     custom_tools_version: "{{ kubelogin_version }}"
+    custom_tools_checksum: "{{ release_checksums.kubelogin[arch] }}"
     custom_tools_src_url: "{{ k8s_tools_github_url }}/int128/kubelogin/releases/download/v%/kubelogin_linux_{{ arch }}.zip"
     custom_tools_target: kubelogin
+    custom_tools_completion: "source <(kubelogin completion zsh)"
     custom_tools_unarchive: true
   tags: [kubelogin]
 
@@ -79,6 +86,7 @@
   vars:
     custom_tools_name: kustomize
     custom_tools_version: "{{ kustomize_version }}"
+    custom_tools_checksum: "{{ release_checksums.kustomize[arch] }}"
     custom_tools_src_url: "{{ k8s_tools_github_url }}/kubernetes-sigs/kustomize/releases/download/kustomize/v%/kustomize_v%_linux_{{ arch }}.tar.gz"
     custom_tools_target: kustomize
     custom_tools_unarchive: true
