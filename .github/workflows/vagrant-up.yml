@@ -3,6 +3,11 @@ name: Vagrant
 
 on:
   workflow_dispatch:
+    inputs:
+      verify-idempotence:
+        description: Run a second provision and require changed=0
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -11,12 +16,34 @@ concurrency:
   group: vagrant-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  VAGRANT_DEFAULT_PROVIDER: libvirt
+  VAGRANT_NO_COLOR: "1"
+
 jobs:
-  vagrant-up:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+  vagrant:
+    name: Provision and verify the VM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo docker image prune -af || true
+          df -h /
+
+      - name: Check KVM availability
+        run: |
+          sudo modprobe kvm_intel 2>/dev/null || sudo modprobe kvm_amd 2>/dev/null || true
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::/dev/kvm is not available. The runner cannot boot a KVM guest."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm
+          grep -m1 -oE 'vmx|svm' /proc/cpuinfo || true
 
       - name: Set up Vagrant and libvirt
         uses: ./.github/actions/vagrant-setup
@@ -29,8 +56,59 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vagrant-
 
-      - name: Show Vagrant version
-        run: vagrant --version
+      - name: Show versions
+        run: |
+          vagrant --version
+          virsh --version
+
+      - name: Validate the Vagrantfile
+        run: vagrant validate
 
       - name: Provision the VM
-        run: vagrant up
+        run: |
+          set -o pipefail
+          vagrant up --provider=libvirt 2>&1 | tee /tmp/vagrant-up.log
+
+      - name: Verify the installed tools
+        run: |
+          set -o pipefail
+          vagrant ssh -c 'bash /vagrant/ci/verify-vm.sh' \
+            2>&1 | tee /tmp/vagrant-verify.log
+
+      - name: Re-provision and check idempotence
+        if: inputs.verify-idempotence
+        run: |
+          set -o pipefail
+          vagrant provision 2>&1 | tee /tmp/vagrant-provision.log
+          grep -Eq 'failed=0' /tmp/vagrant-provision.log
+          grep -Eq 'changed=0' /tmp/vagrant-provision.log
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          {
+            echo "== domains =="
+            virsh -c qemu:///system list --all || true
+            echo "== networks =="
+            virsh -c qemu:///system net-list --all || true
+            echo "== libvirtd =="
+            sudo journalctl -u libvirtd --no-pager | tail -n 200 || true
+            echo "== qemu logs =="
+            sudo tail -n 100 /var/log/libvirt/qemu/*.log 2>/dev/null || true
+            echo "== processes =="
+            pgrep -af 'dnsmasq|qemu-system' || true
+          } > /tmp/vagrant-diagnostics.log 2>&1
+          cat /tmp/vagrant-diagnostics.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vagrant-logs
+          path: /tmp/vagrant-*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Destroy the VM
+        if: always()
+        run: vagrant destroy -f || true

@@ -1,37 +1,110 @@
 ---
-name: "Setup Vagrant and Libvirt"
-description: "A composite action that installs latest versions of vagrant and libvirt for use on ubuntu based runners"
-runs:
-  using: "composite"
-  steps:
-    - name: Add vagrant to apt-get sources
-      shell: bash
-      run: |
-        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+name: Set up Vagrant and libvirt
+description: >-
+  Install Vagrant, libvirt, QEMU and vagrant-libvirt on an Ubuntu runner and
+  configure the host so the VM can boot and use the 9p share.
 
-    - name: Install vagrant and libvirt
+runs:
+  using: composite
+  steps:
+    - name: Install host packages
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          bridge-utils \
           build-essential \
-          libvirt-daemon \
+          dnsmasq-base \
+          ebtables \
+          libvirt-clients \
           libvirt-daemon-system \
           libvirt-dev \
+          libxml2-dev \
+          libxslt1-dev \
           pkg-config \
           qemu-system-x86 \
+          qemu-utils \
           ruby-dev \
-          vagrant \
+          virtinst \
           zlib1g-dev
-        sudo systemctl enable --now libvirtd
 
-    # This is a workaround for the libvirt group not being available in the current shell
-    # https://github.com/actions/runner-images/issues/7670#issuecomment-1900711711
-    - name: Make the libvirt socket rw accessible to everyone
+    - name: Install Vagrant
       shell: bash
-      run: sudo chmod a+rw /var/run/libvirt/libvirt-sock
+      run: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg \
+          | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release && echo "$VERSION_CODENAME") main" \
+          | sudo tee /etc/apt/sources.list.d/hashicorp.list >/dev/null
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y vagrant
 
-    - name: Install vagrant-libvirt plugin
+    - name: Configure libvirt for the runner
+      shell: bash
+      run: |
+        runner_user=$(id -un)
+
+        # QEMU must run as the runner user so it can read the 9p source
+        # directory. AppArmor confinement is disabled for the test VM.
+        sudo python3 - "$runner_user" <<'PY'
+        import re
+        import sys
+
+        user = sys.argv[1]
+
+        def set_option(path, key, value):
+            pattern = re.compile(rf"^\s*#?\s*{re.escape(key)}\s*=")
+            lines = open(path).read().splitlines()
+            output = []
+            replaced = False
+            for line in lines:
+                if pattern.match(line):
+                    if not replaced:
+                        output.append(f'{key} = "{value}"')
+                        replaced = True
+                else:
+                    output.append(line)
+            if not replaced:
+                output.append(f'{key} = "{value}"')
+            open(path, "w").write("\n".join(output) + "\n")
+
+        qemu_conf = "/etc/libvirt/qemu.conf"
+        set_option(qemu_conf, "user", user)
+        set_option(qemu_conf, "group", user)
+        set_option(qemu_conf, "security_driver", "none")
+
+        libvirtd_conf = "/etc/libvirt/libvirtd.conf"
+        set_option(libvirtd_conf, "auth_unix_ro", "none")
+        set_option(libvirtd_conf, "auth_unix_rw", "none")
+        set_option(libvirtd_conf, "unix_sock_rw_perms", "0777")
+        PY
+
+        sudo modprobe kvm 2>/dev/null || true
+        sudo modprobe kvm_intel 2>/dev/null || sudo modprobe kvm_amd 2>/dev/null || true
+        sudo chmod 666 /dev/kvm 2>/dev/null || true
+        sudo sysctl -w net.ipv4.ip_forward=1
+
+        sudo systemctl enable --now libvirtd
+        sudo systemctl restart libvirtd
+        sudo chmod 666 /run/libvirt/libvirt-sock /run/libvirt/libvirt-sock-ro 2>/dev/null || true
+
+        if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+          bridge=$(virsh -c qemu:///system net-info vagrant-libvirt 2>/dev/null \
+            | awk '/^Bridge:/{print $2}')
+          bridge=${bridge:-virbr1}
+          wan=$(ip route show default | awk '{print $5; exit}')
+          sudo ufw allow in on "$bridge"
+          sudo ufw allow out on "$bridge"
+          sudo ufw route allow in on "$bridge" out on "$wan"
+          sudo ufw route allow in on "$wan" out on "$bridge"
+        fi
+
+    - name: Install the vagrant-libvirt plugin
       shell: bash
       run: vagrant plugin install vagrant-libvirt
+
+    - name: Show host versions
+      shell: bash
+      run: |
+        vagrant --version
+        virsh --version
+        vagrant plugin list
