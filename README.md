@@ -272,14 +272,14 @@ check.
 
 ```yaml
 versions:
-  - release: "24.04"
-    box: alvistack/ubuntu-24.04
-    box_version: "20260108.1.1"
+  - release: "26.04"
+    box: alvistack/ubuntu-26.04
+    box_version: "20260516.1.1"
     enabled: true
 ```
 
-- The `Vagrantfile` selects the entry named by `UBUNTU_VERSION`, or the first enabled entry when
-  the variable is unset. The current default is 24.04.
+- The `Vagrantfile` selects the entry named by `UBUNTU_VERSION`, or the last enabled entry when
+  the variable is unset. The current default is 26.04.
 - The **Vagrant** workflow builds its job matrix from the enabled entries, so each release runs in
   its own job with its own log artifact.
 - `enabled: false` keeps a candidate box in the file without running it.
@@ -429,7 +429,7 @@ of disk: the box is about 2 GB and the VM disk is sparse. A successful run ends 
 
 ```
 PLAY RECAP
-ubuntu-24.04 : ok=68  changed=44  unreachable=0  failed=0  skipped=16
+ubuntu-26.04 : ok=68  changed=44  unreachable=0  failed=0  skipped=16
 ```
 
 To test another release, pass its version from `ci/ubuntu-versions.yml`:
@@ -465,7 +465,7 @@ the Ansible provisioner runs.
 
 | Symptom | Cause / fix |
 |---|---|
-| `Waiting for domain to get an IP address...` for minutes | The host firewall is dropping DHCP or bridge traffic. Apply step 4, then check `virsh -c qemu:///system domifaddr ansible-DRP_ubuntu-24.04` and `journalctl -u libvirtd`. |
+| `Waiting for domain to get an IP address...` for minutes | The host firewall is dropping DHCP or bridge traffic. Apply step 4, then check `virsh -c qemu:///system domifaddr ansible-DRP_ubuntu-<release>` and `journalctl -u libvirtd`. |
 | `/vagrant` is empty or missing | 9p permission problem. Run `vagrant ssh -c 'dmesg --level=err,warn'` and verify step 3. |
 | `vagrant status` hangs | Another `vagrant` process holds the machine lock. Wait for it, or stop it before retrying. |
 | The guest cannot reach the package mirrors | The guest has no egress. Check step 4 with `vagrant ssh -c 'curl -I https://archive.ubuntu.com'`. |

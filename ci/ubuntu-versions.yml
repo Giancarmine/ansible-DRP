@@ -3,16 +3,17 @@
 #
 # This file is the single source of truth: the Vagrantfile picks the box and
 # version from here, and the Vagrant workflow builds its job matrix from the
-# enabled entries. Add a release by validating its box locally and appending an
-# entry, or keep an entry with `enabled: false` until the box is ready.
+# enabled entries. The last enabled entry is the default when UBUNTU_VERSION is
+# unset. Add a release by validating its box locally and appending an entry, or
+# keep an entry with `enabled: false` until the box is ready.
 versions:
-  - release: "24.04"
-    box: alvistack/ubuntu-24.04
+  - release: "22.04"
+    box: alvistack/ubuntu-22.04
     box_version: "20260108.1.1"
     enabled: true
 
-  - release: "22.04"
-    box: alvistack/ubuntu-22.04
+  - release: "24.04"
+    box: alvistack/ubuntu-24.04
     box_version: "20260108.1.1"
     enabled: true
 

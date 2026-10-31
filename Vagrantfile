@@ -12,7 +12,7 @@ requested = ENV["UBUNTU_VERSION"]
 if requested.nil?
   raise "No enabled Ubuntu version in #{versions_file}" if enabled.empty?
 
-  ubuntu = enabled.first
+  ubuntu = enabled.last
 else
   ubuntu = versions.find { |version| version["release"] == requested }
   if ubuntu.nil?
