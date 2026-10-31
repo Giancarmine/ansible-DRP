@@ -167,6 +167,7 @@ requirements.yml             community.general collection
 ubuntu.yml                   the playbook
 bootstrap.sh                 installs Ansible and the collection
 group_vars/all.yml           packages, versions, architecture
+ci/verify-vm.sh              checks the tools inside the provisioned VM
 roles/
 ├── base/                    APT/pip/snap packages
 ├── custom_apt/              adds an APT repository with a signed key
@@ -197,9 +198,28 @@ uses 9p and the box is `alvistack/ubuntu-24.04`, pinned to `20260108.1.1` in the
 The `cloud-image/ubuntu-24.04` box never receives a cloud-init datasource under libvirt, so it
 boots without networking or SSH.
 
-The same run is available from the **Vagrant** workflow with `workflow_dispatch`. It is manual
-because nested virtualization is slow and not always available on hosted runners. CI validates
-the playbook statically; it does not provision a machine on every commit.
+The same run is available as the **Vagrant** workflow. It is manual because nested
+virtualization is slow and not always available on hosted runners. CI validates the playbook
+statically; it does not provision a machine on every commit.
+
+### Automated Vagrant test
+
+Trigger **Actions → Vagrant → Run workflow**, or use the GitHub CLI:
+
+```bash
+gh workflow run vagrant-up.yml -f verify-idempotence=true
+```
+
+The job installs the libvirt host stack, checks KVM, runs `vagrant up`, executes
+`ci/verify-vm.sh` inside the guest, optionally re-provisions and requires `changed=0`, uploads
+the logs as the `vagrant-logs` artifact, and destroys the VM. It runs on `ubuntu-24.04` and
+fails fast if `/dev/kvm` is missing. GitHub-hosted runners currently expose KVM, but nested
+virtualization is not officially supported; use a self-hosted runner with KVM if you need a
+guaranteed host. A run takes about 7-10 minutes.
+
+`ci/verify-vm.sh` checks zsh/Oh My Zsh, Docker + Compose, every pinned Kubernetes tool, VS Code
+and the base packages. The pinned versions are read from `group_vars/all.yml`, so bumping a
+version there also updates the assertion.
 
 ## Vagrant VM (libvirt)
 
@@ -340,7 +360,8 @@ applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fst
 
 Validated end to end on 2026-10-31 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
 QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. The first `vagrant up` finished with
-`failed=0`; a second `vagrant provision` finished with `changed=0`.
+`failed=0`; a second `vagrant provision` finished with `changed=0`. The **Vagrant** workflow
+repeated the same checks on an `ubuntu-24.04` GitHub-hosted runner in 7m17s.
 
 ## Notes and safety
 
