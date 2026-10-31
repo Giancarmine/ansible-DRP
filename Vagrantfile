@@ -1,9 +1,10 @@
 Vagrant.require_version ">= 2.3.0"
 
 Vagrant.configure("2") do |config|
-  # This box is packaged for libvirt (and VirtualBox), so it boots with a
-  # working `vagrant` user and does not depend on a cloud-init datasource.
+  # Pin the box to the version validated in this repository. Bump it
+  # deliberately: a floating box can change boot, network or package behaviour.
   config.vm.box = "alvistack/ubuntu-24.04"
+  config.vm.box_version = "20260108.1.1"
   config.vm.boot_timeout = 600
 
   # 9p keeps the project visible inside the VM without an NFS server on the

@@ -193,8 +193,9 @@ ansible-playbook --syntax-check ubuntu.yml
 ```
 
 For a real end-to-end run, use the disposable Vagrant VM. It is libvirt-only: the shared folder
-uses 9p and the box is `alvistack/ubuntu-24.04`. The `cloud-image/ubuntu-24.04` box never
-receives a cloud-init datasource under libvirt, so it boots without networking or SSH.
+uses 9p and the box is `alvistack/ubuntu-24.04`, pinned to `20260108.1.1` in the `Vagrantfile`.
+The `cloud-image/ubuntu-24.04` box never receives a cloud-init datasource under libvirt, so it
+boots without networking or SSH.
 
 The same run is available from the **Vagrant** workflow with `workflow_dispatch`. It is manual
 because nested virtualization is slow and not always available on hosted runners. CI validates
@@ -333,7 +334,7 @@ applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fst
 | `/vagrant` is empty or missing | 9p permission problem. Run `vagrant ssh -c 'dmesg --level=err,warn'` and verify step 3. |
 | `vagrant status` hangs | Another `vagrant` process holds the machine lock. Wait for it, or stop it before retrying. |
 | Ansible install fails in the guest | The guest has no egress. Re-check step 4 with `vagrant ssh -c 'curl -I https://archive.ubuntu.com'`. |
-| Guest boots to a `login:` prompt but Vagrant cannot SSH | The box is missing its cloud-init datasource or the network never came up. Use `alvistack/ubuntu-24.04` as in the bundled `Vagrantfile`. |
+| Guest boots to a `login:` prompt but Vagrant cannot SSH | The box is missing its cloud-init datasource or the network never came up. Use the pinned `alvistack/ubuntu-24.04` box from the bundled `Vagrantfile`. |
 
 ### Validated environment
 
@@ -350,6 +351,8 @@ QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. The first `vagrant up` fi
 - The `docker` role restarts Docker only when `daemon.json` changes.
 - Release versions are pinned deliberately. Bump the variables in `group_vars/all.yml`; the
   `custom_tools` role downloads the matching amd64/arm64 asset.
+- The Vagrant box is pinned with `config.vm.box_version` for the same reason. To move to a newer
+  box, update that line deliberately and re-run the end-to-end test before committing it.
 - Test on a VM or a disposable host before running against a machine you care about.
 - The Vagrant workflow changes the host, not just the VM: libvirt group membership, the QEMU
   user in `/etc/libvirt/qemu.conf`, optional socket authentication in `/etc/libvirt/libvirtd.conf`
