@@ -26,10 +26,28 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ## Requirements
 
+### Target machine
+
 - Ubuntu 24.04, 64-bit (amd64 or arm64).
-- A user with `sudo`. The playbook uses `become` for system changes.
-- Network access to Ubuntu, Microsoft, GitHub and the Kubernetes release endpoints.
-- Ansible 2.16 or newer on the machine running the playbook.
+- A user with `sudo`. The playbook uses `become` for system changes and works with either
+  passwordless sudo or `-K`.
+- Outbound access to:
+  - `archive.ubuntu.com` and `security.ubuntu.com` for APT packages
+  - `ppa.launchpadcontent.net` when Vagrant installs Ansible inside the guest
+  - `github.com` and `objects.githubusercontent.com` for tool releases, Oh My Zsh and plugins
+  - `dl.k8s.io` (kubectl) and `get.helm.sh` (Helm)
+  - `packages.microsoft.com` for VS Code
+
+### Controller (direct or remote runs)
+
+- Ansible 2.16 or newer (`bootstrap.sh` installs the Ubuntu package if Ansible is missing).
+- `git` and `python3`.
+- The `community.general` collection, installed by `bootstrap.sh` from `requirements.yml`.
+
+### Vagrant VM (optional)
+
+The VM path needs Vagrant, libvirt/QEMU and `vagrant-libvirt` on the host. Host setup is
+covered in [Vagrant VM (libvirt)](#vagrant-vm-libvirt).
 
 ## Quick start
 
@@ -88,6 +106,20 @@ The target user and home directory are read from Ansible facts (`ansible_user_id
 
 ## Configuration
 
+### Ansible settings
+
+`ansible.cfg` keeps runs self-contained and targets the local machine by default:
+
+| Setting | Value | Effect |
+|---|---|---|
+| `inventory` | `inventory` | Localhost unless another inventory is passed with `-i` |
+| `roles_path` | `roles` | Roles resolve from this repository |
+| `host_key_checking` | `False` | First SSH connection to a fresh host succeeds; re-enable it if you provision untrusted hosts |
+| `interpreter_python` | `auto_silent` | Finds the target's Python without extra warnings |
+| `retry_files_enabled` | `False` | No `*.retry` files are left behind |
+
+### Playbook variables
+
 Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars`.
 
 | Variable | Default | Purpose |
@@ -98,6 +130,7 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 | `docker_packages` | `docker.io`, `docker-compose-v2` | Docker packages |
 | `docker_daemon` | `{}` | JSON written to `/etc/docker/daemon.json` |
 | `arch` | `amd64` or `arm64` from facts | Release asset architecture |
+| `topgrade_arch` | `x86_64` or `aarch64` from facts | Topgrade asset architecture |
 | `kops_version` | `1.36.2` | kOps version |
 | `kubectl_version` | `1.37.2` | kubectl version |
 | `kubelogin_version` | `1.36.4` | kubelogin version |
@@ -105,6 +138,18 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 | `helm_version` | `4.3.1` | Helm version |
 | `kustomize_version` | `5.8.3` | kustomize version |
 | `topgrade_version` | `17.14.1` | Topgrade version |
+
+### Role defaults
+
+These are advanced knobs used by the helper roles. The defaults are usually correct.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `custom_apt_arch` | `{{ arch }}` | Architecture segment in APT repository URLs |
+| `custom_tools_lib_dir` | `/usr/local/lib` | Destination for extracted tool archives |
+| `custom_tools_bin_dir` | `/usr/local/bin` | Destination for tool symlinks |
+| `custom_tools_unarchive` | `false` | Force archive extraction instead of a single binary |
+| `k8s_tools_github_url` | `https://github.com` | Base URL for GitHub-hosted releases |
 
 Example override:
 
@@ -147,35 +192,154 @@ ansible-lint
 ansible-playbook --syntax-check ubuntu.yml
 ```
 
-For a real end-to-end run, use the disposable Vagrant VM (requires Vagrant, libvirt or
-VirtualBox, and a few GB of disk):
-
-```bash
-vagrant up
-vagrant destroy -f
-```
+For a real end-to-end run, use the disposable Vagrant VM. It is libvirt-only: the shared folder
+uses 9p and the box is `alvistack/ubuntu-24.04`. The `cloud-image/ubuntu-24.04` box never
+receives a cloud-init datasource under libvirt, so it boots without networking or SSH.
 
 The same run is available from the **Vagrant** workflow with `workflow_dispatch`. It is manual
 because nested virtualization is slow and not always available on hosted runners. CI validates
 the playbook statically; it does not provision a machine on every commit.
 
-### Vagrant VM notes (libvirt)
+## Vagrant VM (libvirt)
 
-The bundled `Vagrantfile` uses the `alvistack/ubuntu-24.04` libvirt box and a 9p shared folder.
-That box ships with cloud-init disabled, so the `mount-9p` provisioner mounts `/vagrant` itself
-before `ansible_local` reads the playbook.
+### 1. Host packages
 
-On a host running UFW, allow the libvirt bridge. Without these rules the guest never receives a
-DHCP lease and cannot reach the package mirrors:
+Install Vagrant 2.3+ from <https://developer.hashicorp.com/vagrant/install>, then the libvirt
+stack and the provider plugin. Package names vary by distribution:
 
 ```bash
-sudo ufw allow in on virbr1
-sudo ufw allow out on virbr1
-sudo ufw route allow in on virbr1 out on "$(ip route show default | awk '{print $5; exit}')"
+# Debian/Ubuntu
+sudo apt install qemu-kvm libvirt-daemon-system libvirt-clients virtinst
+vagrant plugin install vagrant-libvirt
+
+# Arch
+sudo pacman -S vagrant libvirt qemu-full virt-install
+vagrant plugin install vagrant-libvirt
 ```
 
-A successful run ends with `failed=0`, and a second `vagrant provision` on the same VM is
-idempotent: the recap should show no meaningful changes.
+```bash
+sudo systemctl enable --now libvirtd
+```
+
+KVM must be available (`ls /dev/kvm`).
+
+### 2. libvirt access for your user
+
+`vagrant-libvirt` connects to `qemu:///system`. Add your user to the `libvirt` group and start
+a new session (or log out and back in):
+
+```bash
+sudo usermod -aG libvirt "$USER"
+newgrp libvirt
+```
+
+If your user still cannot connect, the validated single-user setup also disabled libvirt's
+local socket authentication. Only do this on a workstation you control:
+
+```ini
+# /etc/libvirt/libvirtd.conf
+auth_unix_ro = "none"
+auth_unix_rw = "none"
+```
+
+```bash
+sudo systemctl restart libvirtd
+```
+
+### 3. Let QEMU read the 9p share
+
+The `Vagrantfile` shares the repository over 9p, and QEMU reads that folder directly. Its user
+must be able to traverse the checkout. The validated setup runs QEMU as the desktop user, which
+also needs access to `/dev/kvm` (add the user to the `kvm` group if your distribution restricts
+it):
+
+```ini
+# /etc/libvirt/qemu.conf
+user = "your-user"
+group = "your-user"
+```
+
+```bash
+sudo systemctl restart libvirtd
+```
+
+Running QEMU as your user weakens the isolation between host and guest. Use a dedicated test
+host if that matters, or move the checkout to a path the default QEMU user (`libvirt-qemu` on
+Debian/Ubuntu) can traverse and keep the default `qemu.conf`.
+
+### 4. Firewall
+
+Vagrant creates a NAT network named `vagrant-libvirt` on `virbr1` (`192.168.121.0/24`). If the
+host runs UFW, allow the bridge. Without these rules the guest never receives a DHCP lease and
+cannot reach the package mirrors:
+
+```bash
+WAN=$(ip route show default | awk '{print $5; exit}')
+sudo ufw allow in on virbr1
+sudo ufw allow out on virbr1
+sudo ufw route allow in on virbr1 out on "$WAN"
+sudo ufw route allow in on "$WAN" out on virbr1
+```
+
+Apply these before the first `vagrant up`; UFW keeps rules for an interface that does not exist
+yet. If libvirt assigns a different bridge, check
+`virsh -c qemu:///system net-info vagrant-libvirt` and use that name. If the VM is already
+stuck waiting for an IP, add the rules and restart networking in the guest
+(`sudo systemctl restart systemd-networkd`).
+
+### 5. Run
+
+```bash
+vagrant up --provider=libvirt
+```
+
+The first run downloads the box, boots the VM, mounts the 9p share, installs Ansible in the
+guest (from the official PPA) and runs `ubuntu.yml`. The guest uses the same playbook and
+`group_vars` as a normal run. Allow a few GB of disk: the box is about 2 GB and the VM disk is
+sparse. A successful run ends with:
+
+```
+PLAY RECAP
+default : ok=45  changed=36  unreachable=0  failed=0  skipped=12
+```
+
+Re-running is safe and should report `changed=0`:
+
+```bash
+vagrant provision
+```
+
+Useful commands:
+
+```bash
+vagrant ssh                     # shell in the guest
+vagrant ssh -c 'docker version'
+vagrant halt                    # stop, keep the disk
+vagrant destroy -f              # delete the VM and its disk
+```
+
+The `Vagrantfile` gives the VM 4 GB of RAM and 4 CPUs; edit `libvirt.memory` and `libvirt.cpus`
+if the host has different resources.
+
+The box ships with cloud-init disabled. Vagrant's generated 9p mount metadata is therefore not
+applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fstab` entry before
+`ansible_local` runs.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `Waiting for domain to get an IP address...` for minutes | The host firewall is dropping DHCP or bridge traffic. Apply step 4, then check `virsh -c qemu:///system domifaddr ansible-DRP_default` and `journalctl -u libvirtd`. |
+| `/vagrant` is empty or missing | 9p permission problem. Run `vagrant ssh -c 'dmesg --level=err,warn'` and verify step 3. |
+| `vagrant status` hangs | Another `vagrant` process holds the machine lock. Wait for it, or stop it before retrying. |
+| Ansible install fails in the guest | The guest has no egress. Re-check step 4 with `vagrant ssh -c 'curl -I https://archive.ubuntu.com'`. |
+| Guest boots to a `login:` prompt but Vagrant cannot SSH | The box is missing its cloud-init datasource or the network never came up. Use `alvistack/ubuntu-24.04` as in the bundled `Vagrantfile`. |
+
+### Validated environment
+
+Validated end to end on 2026-10-31 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
+QEMU 11.1.3 and `alvistack/ubuntu-24.04` 20260108.1.1. The first `vagrant up` finished with
+`failed=0`; a second `vagrant provision` finished with `changed=0`.
 
 ## Notes and safety
 
@@ -187,6 +351,14 @@ idempotent: the recap should show no meaningful changes.
 - Release versions are pinned deliberately. Bump the variables in `group_vars/all.yml`; the
   `custom_tools` role downloads the matching amd64/arm64 asset.
 - Test on a VM or a disposable host before running against a machine you care about.
+- The Vagrant workflow changes the host, not just the VM: libvirt group membership, the QEMU
+  user in `/etc/libvirt/qemu.conf`, optional socket authentication in `/etc/libvirt/libvirtd.conf`
+  and the UFW rules for `virbr1`. Revert what you do not want to keep after testing.
+- `vagrant destroy -f` removes the VM and its disk, but leaves the downloaded box in
+  `~/.vagrant.d/boxes`. Remove it with `vagrant box remove alvistack/ubuntu-24.04` if you no
+  longer need it.
+- Vagrant replaces the box's insecure SSH key on first boot; `vagrant ssh` uses the generated
+  key in `.vagrant/`.
 
 ## Inspired by
 
