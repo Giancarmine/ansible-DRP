@@ -207,6 +207,7 @@ requirements-dev.txt         pinned lint toolchain (includes requirements.txt)
 ubuntu.yml                   the playbook
 bootstrap.sh                 creates .venv, installs the controller and the collection
 group_vars/all.yml           packages, versions, checksums, architecture
+ci/ansible-playbook-compat   translates Vagrant's deprecated --inventory-file flag
 ci/verify-checksums.py       verifies or updates the pinned release checksums
 ci/verify-vm.sh              checks the tools inside the provisioned VM
 ci/ubuntu-versions.yml       Ubuntu releases and boxes used by the Vagrant test
@@ -238,8 +239,12 @@ ansible-playbook --syntax-check ubuntu.yml
 ruby -c Vagrantfile          # Vagrantfile syntax
 python ci/verify-checksums.py
 actionlint                   # GitHub Actions
-shellcheck bootstrap.sh ci/verify-vm.sh roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
+shellcheck bootstrap.sh ci/ansible-playbook-compat ci/verify-vm.sh \
+  roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
 ```
+
+A second CI job runs `./bootstrap.sh` on a clean `ubuntu-24.04` runner, activates the generated
+`.venv` and runs the playbook syntax check, so the quick start is tested on every push.
 
 The lint toolchain, the `community.general` collection, shellcheck and actionlint are pinned, so
 a new upstream release cannot turn `main` red without a deliberate update. Dependabot opens
@@ -321,6 +326,11 @@ guest, optionally re-provisions and requires `changed=0`, uploads the logs as
 `/dev/kvm` is missing. GitHub-hosted runners currently expose KVM, but nested virtualization is
 not officially supported; use a self-hosted runner with KVM if you need a guaranteed host. A run
 takes about 5-10 minutes per release.
+
+Vagrant 2.4 still passes the deprecated `--inventory-file` flag, which ansible-core 2.23 removes.
+The `Vagrantfile` sets `ansible.playbook_command` to `ci/ansible-playbook-compat`, which
+translates that flag to `--inventory` before running the pinned controller. CI checks the
+translation, so a future Ansible bump does not silently break `vagrant up`.
 
 `ci/verify-vm.sh` checks zsh/Oh My Zsh, its pinned commit and plugin tags, and that the managed
 `.zshrc` loads, the completion file, Docker + Compose plus daemon access as the login user, every

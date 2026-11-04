@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Vagrant 2.4 still passes --inventory-file to ansible-playbook, but
+# ansible-core 2.23 removes that flag. Translate it to --inventory so the
+# pinned controller can move forward without waiting for a Vagrant release.
+set -euo pipefail
+
+args=()
+expect_inventory=0
+
+for arg in "$@"; do
+    if [ "$expect_inventory" -eq 1 ]; then
+        args+=("$arg")
+        expect_inventory=0
+        continue
+    fi
+
+    case "$arg" in
+        --inventory-file=*)
+            args+=("--inventory=${arg#--inventory-file=}")
+            ;;
+        --inventory-file)
+            args+=("--inventory")
+            expect_inventory=1
+            ;;
+        *)
+            args+=("$arg")
+            ;;
+    esac
+done
+
+exec ansible-playbook "${args[@]}"

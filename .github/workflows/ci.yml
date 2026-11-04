@@ -45,6 +45,29 @@ jobs:
       - name: Check the Vagrantfile syntax
         run: ruby -c Vagrantfile
 
+      - name: Check the Vagrant Ansible wrapper
+        run: |
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          cat >"$tmp/ansible-playbook" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' "$@"
+          EOF
+          chmod +x "$tmp/ansible-playbook"
+
+          output=$(PATH="$tmp:$PATH" ci/ansible-playbook-compat \
+            --inventory-file=/tmp/inventory --limit=ubuntu playbook.yml)
+          printf '%s\n' "$output"
+          grep -Fxq -- '--inventory=/tmp/inventory' <<<"$output"
+          grep -Fxq -- '--limit=ubuntu' <<<"$output"
+          grep -Fxq -- 'playbook.yml' <<<"$output"
+
+          output=$(PATH="$tmp:$PATH" ci/ansible-playbook-compat \
+            --inventory-file /tmp/inventory playbook.yml)
+          printf '%s\n' "$output"
+          grep -Fxq -- '--inventory' <<<"$output"
+          grep -Fxq -- '/tmp/inventory' <<<"$output"
+
       - name: Verify the pinned release checksums
         run: python ci/verify-checksums.py
 
@@ -70,4 +93,19 @@ jobs:
       - name: Lint shell scripts
         run: |
           /tmp/shellcheck-v0.10.0/shellcheck \
-            bootstrap.sh ci/verify-vm.sh roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
+            bootstrap.sh ci/ansible-playbook-compat ci/verify-vm.sh \
+            roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
+
+  bootstrap:
+    name: Bootstrap on Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run bootstrap and check the playbook
+        run: |
+          ./bootstrap.sh
+          source .venv/bin/activate
+          ansible --version
+          ansible-playbook --syntax-check ubuntu.yml

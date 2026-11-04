@@ -74,6 +74,10 @@ Vagrant.configure("2") do |config|
       ansible.playbook = "ubuntu.yml"
       ansible.limit = "all"
       ansible.compatibility_mode = "2.0"
+      # Vagrant 2.4 still passes --inventory-file, which ansible-core 2.23
+      # removes. The wrapper translates it to --inventory, so the host
+      # controller can move past 2.22 without waiting for Vagrant.
+      ansible.playbook_command = File.expand_path("ci/ansible-playbook-compat", __dir__)
       ansible.galaxy_role_file = "requirements.yml"
       ansible.galaxy_command = "ansible-galaxy collection install --force -r %{role_file}"
     end
