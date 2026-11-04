@@ -42,10 +42,12 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ### Controller (direct or remote runs)
 
-- Ansible 2.16 or newer (`bootstrap.sh` installs the Ubuntu package if Ansible is missing and
-  fails with a clear message if the installed version is older).
-- `git` and `python3`.
-- The `community.general` collection, installed by `bootstrap.sh` from `requirements.yml`.
+- Python 3.12 or newer and `git`. The pinned `ansible-core` 2.21.5 requires Python 3.12+, so
+  Ubuntu 22.04's Python 3.10 is not enough for the controller. Use a newer host or install
+  Python 3.12+.
+- Ansible 2.18 or newer. `bootstrap.sh` creates `.venv` and installs the pinned controller from
+  `requirements.txt`, so a system Ansible package is not needed.
+- The `community.general` 13.5.0 collection, installed by `bootstrap.sh` from `requirements.yml`.
 - For local linting: install `requirements-dev.txt` (pinned `ansible-core`, `ansible-lint` and
   `yamllint`).
 
@@ -62,11 +64,13 @@ pinned `ansible-core` runs against every Ubuntu release. Host setup is covered i
 git clone https://github.com/Giancarmine/ansible-DRP.git ~/ansible-DRP
 cd ~/ansible-DRP
 ./bootstrap.sh
+source .venv/bin/activate
 ansible-playbook ubuntu.yml -K
 ```
 
-`bootstrap.sh` installs Ansible and the required collection if they are missing. `-K` asks for
-the sudo password; omit it if your user has passwordless sudo.
+`bootstrap.sh` creates `.venv`, installs the pinned controller from `requirements.txt` and the
+required collection, then tells you how to activate it. `-K` asks for the sudo password; omit it
+if your user has passwordless sudo.
 
 Preview the changes first:
 
@@ -109,8 +113,8 @@ ansible-playbook -i inventory.local ubuntu.yml
 
 `accept-new` trusts the host key on the first connection and rejects a changed key later.
 Remove it once the key is in `known_hosts`. The target user and home directory are read from
-Ansible facts (`ansible_user_id`, `ansible_env.HOME`), so the roles follow the SSH user rather
-than the user running Ansible. `inventory.local` is git-ignored.
+Ansible facts (`ansible_facts['user_id']` and `ansible_facts['env']['HOME']`), so the roles follow
+the SSH user rather than the user running Ansible. `inventory.local` is git-ignored.
 
 ## Configuration
 
@@ -147,6 +151,8 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 | `helm_version` | `4.3.1` | Helm version |
 | `kustomize_version` | `5.8.3` | kustomize version |
 | `topgrade_version` | `17.14.1` | Topgrade version |
+| `ohmyzsh_version` | pinned commit | Oh My Zsh version installed by the `ohmyzsh` role |
+| `ohmyzsh_plugins` | three pinned plugins | Plugin repositories and release tags cloned by `ohmyzsh` |
 
 ### Role defaults
 
@@ -194,11 +200,12 @@ a fresh machine without running `base` first.
 ```
 ansible.cfg                  inventory path, roles path, defaults
 inventory                    localhost by default; copy for remote hosts
+requirements.txt             pinned Ansible controller
 requirements.yml             pinned community.general collection
-requirements-dev.txt         pinned lint toolchain
+requirements-dev.txt         pinned lint toolchain (includes requirements.txt)
 .ansible-lint                production profile, strict mode
 ubuntu.yml                   the playbook
-bootstrap.sh                 installs Ansible and the collection
+bootstrap.sh                 creates .venv, installs the controller and the collection
 group_vars/all.yml           packages, versions, checksums, architecture
 ci/verify-checksums.py       verifies or updates the pinned release checksums
 ci/verify-vm.sh              checks the tools inside the provisioned VM
@@ -237,7 +244,7 @@ shellcheck bootstrap.sh ci/verify-vm.sh roles/k8s_tools/files/usr/local/bin/kust
 The lint toolchain, the `community.general` collection, shellcheck and actionlint are pinned, so
 a new upstream release cannot turn `main` red without a deliberate update. Dependabot opens
 weekly PRs for the Actions and Python pins; the collection version is bumped in
-`requirements.yml`.
+`requirements.yml`, and the Oh My Zsh commit and plugin tags are bumped in `group_vars/all.yml`.
 
 ### Release checksums
 
@@ -291,8 +298,8 @@ The repository currently enables 22.04, 24.04 and 26.04:
 To add another release, download and boot its box, run the full
 `vagrant up` / `ci/verify-vm.sh` / `vagrant provision` sequence, then append an entry with
 `enabled: true` and push. No playbook, Vagrantfile or workflow change is needed. The playbook
-asserts the guest architecture, and the host controller comes from `requirements-dev.txt`, so
-the same Ansible version tests every release.
+asserts the guest architecture, and the host controller comes from `requirements.txt`, so the
+same Ansible version tests every release.
 
 ### Automated Vagrant test
 
@@ -315,10 +322,10 @@ guest, optionally re-provisions and requires `changed=0`, uploads the logs as
 not officially supported; use a self-hosted runner with KVM if you need a guaranteed host. A run
 takes about 5-10 minutes per release.
 
-`ci/verify-vm.sh` checks zsh/Oh My Zsh and that the managed `.zshrc` loads, the completion file,
-Docker + Compose plus daemon access as the login user, every pinned Kubernetes tool, VS Code and
-the base packages. The pinned versions are read from `group_vars/all.yml`, so bumping a version
-there also updates the assertion.
+`ci/verify-vm.sh` checks zsh/Oh My Zsh, its pinned commit and plugin tags, and that the managed
+`.zshrc` loads, the completion file, Docker + Compose plus daemon access as the login user, every
+pinned Kubernetes tool, VS Code and the base packages. The pinned versions are read from
+`group_vars/all.yml`, so bumping a version there also updates the assertion.
 
 ## Vagrant VM (libvirt)
 
@@ -413,9 +420,8 @@ stuck waiting for an IP, add the rules and restart networking in the guest
 Install the pinned controller on the host before the first run:
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements-dev.txt
+./bootstrap.sh
+source .venv/bin/activate
 ```
 
 ```bash
@@ -424,7 +430,7 @@ vagrant up --provider=libvirt
 
 The first run downloads the box, boots the VM, mounts the 9p share and runs `ubuntu.yml` from the
 host over SSH. The guest only needs its target Python; the host controller version is the one in
-`requirements-dev.txt`, so every Ubuntu release is tested with the same Ansible. Allow a few GB
+`requirements.txt`, so every Ubuntu release is tested with the same Ansible. Allow a few GB
 of disk: the box is about 2 GB and the VM disk is sparse. A successful run ends with:
 
 ```
@@ -473,7 +479,7 @@ the Ansible provisioner runs.
 
 ### Validated environment
 
-Validated end to end on 2026-10-31 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
+Validated end to end on 2026-11-04 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
 QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `alvistack` box:
 
 | Release | Box | Fresh run | Second provision |
@@ -489,6 +495,9 @@ QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `al
 
 - `ohmyzsh` manages `~/.zshrc`. The previous file is backed up next to it as
   `.zshrc.<timestamp>` on the first change.
+- Oh My Zsh is pinned to a commit and its plugins to release tags in `group_vars/all.yml`.
+  Oh My Zsh self-update is disabled in the managed `.zshrc`, so a provisioned machine stays on
+  those versions until you bump the pins. `ci/verify-vm.sh` checks the pins in the VM.
 - Adding the user to the `docker` group takes effect after a new login session.
 - The playbook installs packages but does not upgrade the system or reboot it.
 - The `docker` role restarts Docker only when `daemon.json` changes. With the default empty

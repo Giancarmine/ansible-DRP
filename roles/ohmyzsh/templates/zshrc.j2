@@ -11,6 +11,10 @@ plugins=(
   zsh-history-substring-search
 )
 
+# Oh My Zsh and its plugins are pinned by Ansible. Do not self-update away
+# from those versions; bump the pins in group_vars/all.yml instead.
+zstyle ':omz:update' mode disabled
+
 source "$ZSH/oh-my-zsh.sh"
 
 # The k8s_tools role writes native zsh completions here. Loading them after

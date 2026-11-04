@@ -2,5 +2,7 @@
 profile: production
 strict: true
 exclude_paths:
+  - .ansible/
+  - .venv/
   - .vagrant/
   - .github/

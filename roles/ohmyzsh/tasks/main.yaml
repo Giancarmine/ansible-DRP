@@ -14,23 +14,17 @@
   ansible.builtin.git:
     repo: https://github.com/ohmyzsh/ohmyzsh.git
     dest: "{{ home }}/.oh-my-zsh"
-    version: master
-    depth: 1
+    version: "{{ ohmyzsh_version }}"
   tags: [zsh]
 
 - name: Clone zsh plugins
   ansible.builtin.git:
     repo: "{{ item.repo }}"
     dest: "{{ home }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
-    version: master
-    depth: 1
-  loop:
-    - name: zsh-autosuggestions
-      repo: https://github.com/zsh-users/zsh-autosuggestions.git
-    - name: zsh-syntax-highlighting
-      repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
-    - name: zsh-history-substring-search
-      repo: https://github.com/zsh-users/zsh-history-substring-search.git
+    version: "{{ item.version }}"
+  loop: "{{ ohmyzsh_plugins }}"
+  loop_control:
+    label: "{{ item.name }}"
   tags: [zsh]
 
 - name: Set zsh as the default shell

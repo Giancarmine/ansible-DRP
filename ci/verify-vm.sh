@@ -38,6 +38,22 @@ command -v zsh >/dev/null 2>&1 || fail "zsh is missing"
 for plugin in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
   [ -d "$HOME/.oh-my-zsh/custom/plugins/$plugin" ] || fail "missing zsh plugin $plugin"
 done
+
+ohmyzsh_pin=$(expected_version ohmyzsh_version)
+actual_ohmyzsh=$(git -C "$HOME/.oh-my-zsh" rev-parse HEAD 2>/dev/null || true)
+[ "$actual_ohmyzsh" = "$ohmyzsh_pin" ] \
+  || fail "Oh My Zsh is at ${actual_ohmyzsh:-an unknown commit}, expected $ohmyzsh_pin"
+while read -r plugin version; do
+  [ -n "$plugin" ] || continue
+  actual_version=$(git -C "$HOME/.oh-my-zsh/custom/plugins/$plugin" describe --tags --exact-match 2>/dev/null || true)
+  [ "$actual_version" = "$version" ] \
+    || fail "$plugin is at ${actual_version:-an untagged commit}, expected $version"
+done < <(awk '
+  /^ohmyzsh_plugins:/ { in_list = 1; next }
+  in_list && /^  - name:/ { name = $3; next }
+  in_list && /^    version:/ { gsub(/"/, "", $2); print name, $2; next }
+  in_list && /^[^[:space:]]/ { in_list = 0 }
+' "$GROUP_VARS")
 zsh_startup_errors=$(zsh -ic true 2>&1 >/dev/null)
 [ -z "$zsh_startup_errors" ] || fail "zsh startup printed errors: ${zsh_startup_errors}"
 [ "$(zsh -ic 'printf %s "$ZSH_THEME"' 2>/dev/null)" = "robbyrussell" ] \

@@ -75,7 +75,7 @@ Vagrant.configure("2") do |config|
       ansible.limit = "all"
       ansible.compatibility_mode = "2.0"
       ansible.galaxy_role_file = "requirements.yml"
-      ansible.galaxy_command = "ansible-galaxy collection install -r %{role_file}"
+      ansible.galaxy_command = "ansible-galaxy collection install --force -r %{role_file}"
     end
   end
 end

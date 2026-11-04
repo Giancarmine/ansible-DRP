@@ -1,13 +1,13 @@
 ---
 # The playbook can target this machine or a remote host. Both values come from
 # facts, so they follow the connection user instead of the controller's shell.
-username: "{{ ansible_user_id }}"
-home: "{{ ansible_env.HOME }}"
+username: "{{ ansible_facts['user_id'] }}"
+home: "{{ ansible_facts['env']['HOME'] }}"
 
 # Host architecture used to pick upstream release assets. The playbook asserts
 # that the target is x86_64 or aarch64 before these are evaluated.
-arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }}"
-topgrade_arch: "{{ {'x86_64': 'x86_64', 'aarch64': 'aarch64'}[ansible_architecture] }}"
+arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+topgrade_arch: "{{ {'x86_64': 'x86_64', 'aarch64': 'aarch64'}[ansible_facts['architecture']] }}"
 
 # Packages installed by the base and docker roles.
 packages_apt:
@@ -26,6 +26,21 @@ packages_apt:
 packages_pip: []
 
 packages_snap: []
+
+# Oh My Zsh publishes no releases, so it is pinned to a commit. The plugins use
+# their latest release tags. The managed .zshrc disables Oh My Zsh self-update,
+# so a provisioned machine stays on these versions until the pins are bumped.
+ohmyzsh_version: "b509b1c6ed0c1ba37de12cbd37f30b2b2f61193a"
+ohmyzsh_plugins:
+  - name: zsh-autosuggestions
+    repo: https://github.com/zsh-users/zsh-autosuggestions.git
+    version: "v0.7.1"
+  - name: zsh-syntax-highlighting
+    repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+    version: "0.8.0"
+  - name: zsh-history-substring-search
+    repo: https://github.com/zsh-users/zsh-history-substring-search.git
+    version: "v1.1.0"
 
 docker_packages:
   - docker.io

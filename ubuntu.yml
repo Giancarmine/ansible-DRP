@@ -7,9 +7,9 @@
     - name: Check the target architecture
       ansible.builtin.assert:
         that:
-          - ansible_architecture in ['x86_64', 'aarch64']
+          - ansible_facts['architecture'] in ['x86_64', 'aarch64']
         fail_msg: >-
-          Unsupported architecture {{ ansible_architecture }}.
+          Unsupported architecture {{ ansible_facts['architecture'] }}.
           This playbook only provides amd64 and arm64 release assets.
         quiet: true
       tags: [always]
