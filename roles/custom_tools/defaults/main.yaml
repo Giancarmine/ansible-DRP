@@ -3,4 +3,4 @@ custom_tools_lib_dir: /usr/local/lib
 custom_tools_bin_dir: /usr/local/bin
 custom_tools_unarchive: false
 custom_tools_checksum: ""
-custom_tools_completion_file: "{{ home }}/.config/ansible-drp/completions.zsh"
+custom_tools_completion_dir: "{{ home }}/.config/ansible-drp/completions.d"

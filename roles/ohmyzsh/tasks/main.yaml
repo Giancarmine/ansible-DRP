@@ -34,6 +34,12 @@
     shell: /bin/zsh
   tags: [zsh]
 
+- name: Remove the legacy completion file
+  ansible.builtin.file:
+    path: "{{ home }}/.config/ansible-drp/completions.zsh"
+    state: absent
+  tags: [zsh]
+
 - name: Configure .zshrc
   ansible.builtin.template:
     src: zshrc.j2

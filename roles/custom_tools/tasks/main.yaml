@@ -56,17 +56,34 @@
     path: "{{ custom_tools_bin_dir }}/{{ custom_tools_name }}"
     state: link
 
+- name: "Find old installations of {{ custom_tools_name }}"
+  become: true
+  ansible.builtin.find:
+    paths: "{{ custom_tools_lib_dir }}"
+    patterns: "{{ custom_tools_name }}-*"
+    file_type: directory
+  register: custom_tools_installations
+
+- name: "Remove old installations of {{ custom_tools_name }}"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ custom_tools_installations.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename) != (custom_tools_name ~ '-' ~ custom_tools_version)
+
 - name: "Create the completion directory for {{ custom_tools_name }}"
   ansible.builtin.file:
-    path: "{{ custom_tools_completion_file | dirname }}"
+    path: "{{ custom_tools_completion_dir }}"
     state: directory
     mode: "0755"
   when: custom_tools_completion is defined
 
 - name: "Add the zsh completion for {{ custom_tools_name }}"
-  ansible.builtin.lineinfile:
-    path: "{{ custom_tools_completion_file }}"
-    line: "{{ custom_tools_completion }}"
-    create: true
+  ansible.builtin.copy:
+    content: "{{ custom_tools_completion }}\n"
+    dest: "{{ custom_tools_completion_dir }}/{{ custom_tools_name }}.zsh"
     mode: "0644"
   when: custom_tools_completion is defined

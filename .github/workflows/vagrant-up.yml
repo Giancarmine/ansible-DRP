@@ -34,23 +34,14 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build the matrix from ci/ubuntu-versions.yml
+      - name: Validate and build the matrix from ci/ubuntu-versions.yml
         id: matrix
         env:
           UBUNTU_VERSION: ${{ inputs.ubuntu-version || 'all' }}
         run: |
-          value=$(ruby -ryaml -rjson -e '
-            versions = YAML.load_file("ci/ubuntu-versions.yml").fetch("versions")
-            versions = versions.reject { |v| v["enabled"] == false }
-            requested = ENV.fetch("UBUNTU_VERSION", "all")
-            if requested != "all"
-              versions = versions.select { |v| v["release"] == requested }
-              raise "UBUNTU_VERSION=#{requested} is not enabled" if versions.empty?
-            end
-            puts JSON.generate(versions.map { |v| v.slice("release", "box", "box_version") })
-          ')
+          value=$(ruby ci/verify-ubuntu-versions.rb --matrix --release "$UBUNTU_VERSION")
           echo "value=${value}" >> "$GITHUB_OUTPUT"
           echo "Matrix: ${value}"
 
@@ -66,9 +57,9 @@ jobs:
     env:
       UBUNTU_VERSION: ${{ matrix.release }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
           cache: pip
@@ -100,7 +91,7 @@ jobs:
         uses: ./.github/actions/vagrant-setup
 
       - name: Cache Vagrant boxes
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.vagrant.d/boxes
           key: ${{ runner.os }}-vagrant-${{ matrix.release }}-${{ matrix.box_version }}-${{ hashFiles('ci/ubuntu-versions.yml') }}
@@ -157,7 +148,7 @@ jobs:
 
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vagrant-logs-ubuntu-${{ matrix.release }}
           path: /tmp/vagrant-*.log

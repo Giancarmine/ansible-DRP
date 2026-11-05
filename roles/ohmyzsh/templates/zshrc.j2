@@ -17,10 +17,14 @@ zstyle ':omz:update' mode disabled
 
 source "$ZSH/oh-my-zsh.sh"
 
-# The k8s_tools role writes native zsh completions here. Loading them after
-# Oh My Zsh means compinit has already run.
-if [ -f "{{ home }}/.config/ansible-drp/completions.zsh" ]; then
-  source "{{ home }}/.config/ansible-drp/completions.zsh"
+# The k8s_tools role writes one native zsh completion file per tool. Loading
+# them after Oh My Zsh means compinit has already run. The (N) qualifier skips
+# the loop when the directory does not exist or is empty.
+completion_dir="{{ home }}/.config/ansible-drp/completions.d"
+if [ -d "$completion_dir" ]; then
+  for completion in "$completion_dir"/*.zsh(N); do
+    source "$completion"
+  done
 fi
 
 export PATH="$HOME/bin:/usr/local/bin:$PATH"

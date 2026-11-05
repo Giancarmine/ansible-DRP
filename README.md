@@ -169,7 +169,7 @@ These are advanced knobs used by the helper roles. The defaults are usually corr
 | `custom_tools_bin_dir` | `/usr/local/bin` | Destination for tool symlinks |
 | `custom_tools_unarchive` | `false` | Force archive extraction instead of a single binary |
 | `custom_tools_checksum` | required | SHA256 of the release asset, verified by `get_url` |
-| `custom_tools_completion_file` | `~/.config/ansible-drp/completions.zsh` | Native zsh completion snippets sourced by `.zshrc` |
+| `custom_tools_completion_dir` | `~/.config/ansible-drp/completions.d` | Directory of per-tool native zsh completions sourced by `.zshrc` |
 | `k8s_tools_github_url` | `https://github.com` | Base URL for GitHub-hosted releases |
 
 Example override:
@@ -209,6 +209,7 @@ bootstrap.sh                 creates .venv, installs the controller and the coll
 group_vars/all.yml           packages, versions, checksums, architecture
 ci/ansible-playbook-compat   translates Vagrant's deprecated --inventory-file flag
 ci/verify-checksums.py       verifies or updates the pinned release checksums
+ci/verify-ubuntu-versions.rb validates the release matrix and prints it as JSON
 ci/verify-vm.sh              checks the tools inside the provisioned VM
 ci/ubuntu-versions.yml       Ubuntu releases and boxes used by the Vagrant test
 roles/
@@ -237,6 +238,7 @@ yamllint .
 ansible-lint                 # production profile, strict mode
 ansible-playbook --syntax-check ubuntu.yml
 ruby -c Vagrantfile          # Vagrantfile syntax
+ruby ci/verify-ubuntu-versions.rb   # release matrix
 python ci/verify-checksums.py
 actionlint                   # GitHub Actions
 shellcheck bootstrap.sh ci/ansible-playbook-compat ci/verify-vm.sh \
@@ -247,9 +249,10 @@ A second CI job runs `./bootstrap.sh` on a clean `ubuntu-24.04` runner, activate
 `.venv` and runs the playbook syntax check, so the quick start is tested on every push.
 
 The lint toolchain, the `community.general` collection, shellcheck and actionlint are pinned, so
-a new upstream release cannot turn `main` red without a deliberate update. Dependabot opens
-weekly PRs for the Actions and Python pins; the collection version is bumped in
-`requirements.yml`, and the Oh My Zsh commit and plugin tags are bumped in `group_vars/all.yml`.
+a new upstream release cannot turn `main` red without a deliberate update. GitHub Actions are
+pinned to commit SHAs as well. Dependabot opens weekly PRs for the Actions and Python pins; the
+collection version is bumped in `requirements.yml`, and the Oh My Zsh commit and plugin tags are
+bumped in `group_vars/all.yml`.
 
 ### Release checksums
 
@@ -299,6 +302,15 @@ versions:
 The repository currently enables 22.04, 24.04 and 26.04:
 `alvistack/ubuntu-22.04` 20260108.1.1, `alvistack/ubuntu-24.04` 20260108.1.1 and
 `alvistack/ubuntu-26.04` 20260516.1.1.
+
+The Vagrant boxes are amd64, so the VM workflow exercises the amd64 release assets. The playbook
+also supports arm64 and pins arm64 checksums, but the arm64 path is not covered by the Vagrant
+matrix.
+
+`ci/verify-ubuntu-versions.rb` checks the file before either workflow uses it: releases must be
+unique, ascending `YY.MM` strings, boxes must be unique `owner/name` values with fixed numeric
+versions, and at least one entry must be enabled. The Vagrant workflow also uses the script's
+`--matrix` output, so the workflow and the Vagrantfile both consume the same validated data.
 
 To add another release, download and boot its box, run the full
 `vagrant up` / `ci/verify-vm.sh` / `vagrant provision` sequence, then append an entry with
@@ -445,7 +457,7 @@ of disk: the box is about 2 GB and the VM disk is sparse. A successful run ends 
 
 ```
 PLAY RECAP
-ubuntu-26.04 : ok=68  changed=44  unreachable=0  failed=0  skipped=16
+ubuntu-26.04 : ok=76  changed=44  unreachable=0  failed=0  skipped=23
 ```
 
 To test another release, pass its version from `ci/ubuntu-versions.yml`:
@@ -489,14 +501,14 @@ the Ansible provisioner runs.
 
 ### Validated environment
 
-Validated end to end on 2026-11-04 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
+Validated end to end on 2026-11-05 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
 QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `alvistack` box:
 
 | Release | Box | Fresh run | Second provision |
 |---|---|---|---|
-| 22.04 | `alvistack/ubuntu-22.04` 20260108.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
-| 24.04 | `alvistack/ubuntu-24.04` 20260108.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
-| 26.04 | `alvistack/ubuntu-26.04` 20260516.1.1 | `ok=68 changed=44 failed=0 skipped=16` | `ok=63 changed=0 failed=0 skipped=21` |
+| 22.04 | `alvistack/ubuntu-22.04` 20260108.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
+| 24.04 | `alvistack/ubuntu-24.04` 20260108.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
+| 26.04 | `alvistack/ubuntu-26.04` 20260516.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
 
 `ci/verify-vm.sh` passed on all three. The **Vagrant** workflow repeats the same checks on an
 `ubuntu-24.04` GitHub-hosted runner in roughly 5-10 minutes per release.
@@ -517,8 +529,11 @@ QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `al
   `release_checksums`. A version bump must update the version and both architecture hashes.
 - `topgrade` uses the same versioned install as the Kubernetes tools, so bumping
   `topgrade_version` replaces the binary instead of leaving the old one in place.
-- Shell completions are written to `~/.config/ansible-drp/completions.zsh` as native zsh
-  snippets and sourced by `.zshrc` after Oh My Zsh, so `compinit` is already loaded.
+- Shell completions are written as one native zsh file per tool under
+  `~/.config/ansible-drp/completions.d` and sourced by `.zshrc` after Oh My Zsh, so `compinit` is
+  already loaded. A changed completion replaces the tool's file instead of appending a stale line.
+- When a tool version changes, `custom_tools` removes the previous `<tool>-<version>` directory
+  from `/usr/local/lib` after the new binary is linked, so old releases do not accumulate.
 - `packages_pip` uses the system Python. On Ubuntu 24.04, populate it only if you also provide a
   venv or pass `--break-system-packages`; the default is empty.
 - `packages_snap` accepts strings for strict snaps, or `{name: foo, classic: true}` maps for

@@ -58,8 +58,13 @@ zsh_startup_errors=$(zsh -ic true 2>&1 >/dev/null)
 [ -z "$zsh_startup_errors" ] || fail "zsh startup printed errors: ${zsh_startup_errors}"
 [ "$(zsh -ic 'printf %s "$ZSH_THEME"' 2>/dev/null)" = "robbyrussell" ] \
   || fail "zsh does not load the managed .zshrc"
-[ -f "$HOME/.config/ansible-drp/completions.zsh" ] || fail "completion file is missing"
-grep -q "completions.zsh" "$HOME/.zshrc" || fail ".zshrc does not source the completion file"
+completion_dir="$HOME/.config/ansible-drp/completions.d"
+[ -d "$completion_dir" ] || fail "completion directory is missing"
+for tool in kops kubectl helm istioctl kubelogin; do
+  [ -f "$completion_dir/$tool.zsh" ] || fail "completion for $tool is missing"
+done
+[ ! -e "$HOME/.config/ansible-drp/completions.zsh" ] || fail "legacy completion file is still present"
+grep -q "completions.d" "$HOME/.zshrc" || fail ".zshrc does not source the completion directory"
 completion_functions=$(zsh -ic 'whence -w _kubectl _helm _kops _istioctl _kubelogin' 2>/dev/null)
 for function in _kubectl _helm _kops _istioctl _kubelogin; do
   printf '%s\n' "$completion_functions" | grep -Fxq "$function: function" \
