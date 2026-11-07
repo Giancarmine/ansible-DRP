@@ -24,6 +24,11 @@
     dest: "{{ custom_apt_key.keyring }}"
     checksum: "{{ custom_apt_key.checksum | default(omit) }}"
     mode: "0644"
+    timeout: 60
+  register: custom_apt_key_download
+  until: custom_apt_key_download is succeeded
+  retries: 4
+  delay: 5
   when: custom_apt_key is defined
 
 - name: "Add the APT repository for {{ custom_apt_name }}"

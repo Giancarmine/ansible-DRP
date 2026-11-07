@@ -23,6 +23,11 @@
     dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_url | basename }}"
     checksum: "sha256:{{ custom_tools_checksum }}"
     mode: "0755"
+    timeout: "{{ custom_tools_download_timeout }}"
+  register: custom_tools_download
+  until: custom_tools_download is succeeded
+  retries: "{{ custom_tools_download_retries }}"
+  delay: "{{ custom_tools_download_delay }}"
   when: not (custom_tools_unarchive | bool)
   vars:
     custom_tools_url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"
@@ -34,6 +39,11 @@
     dest: "{{ custom_tools_lib_dir }}/{{ custom_tools_name }}-{{ custom_tools_version }}/{{ custom_tools_url | basename }}"
     checksum: "sha256:{{ custom_tools_checksum }}"
     mode: "0644"
+    timeout: "{{ custom_tools_download_timeout }}"
+  register: custom_tools_download
+  until: custom_tools_download is succeeded
+  retries: "{{ custom_tools_download_retries }}"
+  delay: "{{ custom_tools_download_delay }}"
   when: custom_tools_unarchive | bool
   vars:
     custom_tools_url: "{{ custom_tools_src_url | replace('%', custom_tools_version) }}"

@@ -570,6 +570,8 @@ QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `al
 - Release versions are pinned deliberately. Bump the variables in `group_vars/all.yml`; the
   `custom_tools` role downloads the matching amd64/arm64 asset and verifies it against
   `release_checksums`. A version bump must update the version and both architecture hashes.
+  Downloads retry transient CDN failures; tune `custom_tools_download_retries`,
+  `custom_tools_download_delay` and `custom_tools_download_timeout` if needed.
 - `topgrade` uses the same versioned install as the Kubernetes tools, so bumping
   `topgrade_version` replaces the binary instead of leaving the old one in place.
 - Shell completions are generated once at provision time as one native zsh file per tool under
