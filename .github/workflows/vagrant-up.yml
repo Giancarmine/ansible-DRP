@@ -35,6 +35,8 @@ jobs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Validate and build the matrix from ci/ubuntu-versions.yml
         id: matrix
@@ -58,6 +60,8 @@ jobs:
       UBUNTU_VERSION: ${{ matrix.release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -88,7 +92,10 @@ jobs:
           grep -m1 -oE 'vmx|svm' /proc/cpuinfo || true
 
       - name: Set up Vagrant and libvirt
-        uses: ./.github/actions/vagrant-setup
+        # actionlint 1.7.12 rejects the $/ self-repository syntax that zizmor
+        # recommends, so keep the workspace-relative form until actionlint
+        # supports it.
+        uses: ./.github/actions/vagrant-setup # zizmor: ignore[self-repository]
 
       - name: Cache Vagrant boxes
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -124,8 +131,7 @@ jobs:
         run: |
           set -o pipefail
           vagrant provision 2>&1 | tee "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
-          grep -Eq 'failed=0' "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
-          grep -Eq 'changed=0' "/tmp/vagrant-${UBUNTU_VERSION}-provision.log"
+          ci/assert-recap.sh "/tmp/vagrant-${UBUNTU_VERSION}-provision.log" 0
 
       - name: Collect diagnostics
         if: failure()

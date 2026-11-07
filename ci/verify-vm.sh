@@ -2,7 +2,7 @@
 # Verifies the tools installed by ubuntu.yml inside the Vagrant VM.
 set -euo pipefail
 
-GROUP_VARS=/vagrant/group_vars/all.yml
+META="$HOME/.config/ansible-drp/versions.json"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -13,10 +13,15 @@ pass() {
   printf 'ok: %s\n' "$*"
 }
 
+command -v python3 >/dev/null 2>&1 || fail "python3 is missing"
+[ -f "$META" ] || fail "missing pin metadata: $META"
+
 expected_version() {
   local key=$1 value
-  value=$(awk -v key="${key}:" '$1 == key { gsub(/"/, "", $2); print $2; exit }' "$GROUP_VARS")
-  [ -n "$value" ] || fail "no ${key} in ${GROUP_VARS}"
+  value=$(python3 -c \
+    'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' \
+    "$META" "$key") || fail "cannot read ${key} from ${META}"
+  [ -n "$value" ] || fail "no ${key} in ${META}"
   printf '%s' "$value"
 }
 
@@ -43,30 +48,32 @@ ohmyzsh_pin=$(expected_version ohmyzsh_version)
 actual_ohmyzsh=$(git -C "$HOME/.oh-my-zsh" rev-parse HEAD 2>/dev/null || true)
 [ "$actual_ohmyzsh" = "$ohmyzsh_pin" ] \
   || fail "Oh My Zsh is at ${actual_ohmyzsh:-an unknown commit}, expected $ohmyzsh_pin"
-while read -r plugin version; do
+while read -r plugin commit; do
   [ -n "$plugin" ] || continue
-  actual_version=$(git -C "$HOME/.oh-my-zsh/custom/plugins/$plugin" describe --tags --exact-match 2>/dev/null || true)
-  [ "$actual_version" = "$version" ] \
-    || fail "$plugin is at ${actual_version:-an untagged commit}, expected $version"
-done < <(awk '
-  /^ohmyzsh_plugins:/ { in_list = 1; next }
-  in_list && /^  - name:/ { name = $3; next }
-  in_list && /^    version:/ { gsub(/"/, "", $2); print name, $2; next }
-  in_list && /^[^[:space:]]/ { in_list = 0 }
-' "$GROUP_VARS")
+  actual_commit=$(git -C "$HOME/.oh-my-zsh/custom/plugins/$plugin" rev-parse HEAD 2>/dev/null || true)
+  [ "$actual_commit" = "$commit" ] \
+    || fail "$plugin is at ${actual_commit:-an unknown commit}, expected commit $commit"
+done < <(python3 -c '
+import json, sys
+for plugin in json.load(open(sys.argv[1]))["ohmyzsh_plugins"]:
+    print(plugin["name"], plugin["version"])
+' "$META")
 zsh_startup_errors=$(zsh -ic true 2>&1 >/dev/null)
 [ -z "$zsh_startup_errors" ] || fail "zsh startup printed errors: ${zsh_startup_errors}"
 [ "$(zsh -ic 'printf %s "$ZSH_THEME"' 2>/dev/null)" = "robbyrussell" ] \
   || fail "zsh does not load the managed .zshrc"
 completion_dir="$HOME/.config/ansible-drp/completions.d"
 [ -d "$completion_dir" ] || fail "completion directory is missing"
-for tool in kops kubectl helm istioctl kubelogin; do
-  [ -f "$completion_dir/$tool.zsh" ] || fail "completion for $tool is missing"
+for tool in kops kubectl helm istioctl kubelogin kustomize; do
+  [ -s "$completion_dir/$tool.zsh" ] || fail "completion for $tool is missing or empty"
 done
+if grep -RqE '^[[:space:]]*source[[:space:]]+<\(' "$completion_dir"; then
+  fail "completion files still execute tools at shell startup"
+fi
 [ ! -e "$HOME/.config/ansible-drp/completions.zsh" ] || fail "legacy completion file is still present"
 grep -q "completions.d" "$HOME/.zshrc" || fail ".zshrc does not source the completion directory"
-completion_functions=$(zsh -ic 'whence -w _kubectl _helm _kops _istioctl _kubelogin' 2>/dev/null)
-for function in _kubectl _helm _kops _istioctl _kubelogin; do
+completion_functions=$(zsh -ic 'whence -w _kubectl _helm _kops _istioctl _kubelogin _kustomize' 2>/dev/null)
+for function in _kubectl _helm _kops _istioctl _kubelogin _kustomize; do
   printf '%s\n' "$completion_functions" | grep -Fxq "$function: function" \
     || fail "zsh completion $function is not loaded"
 done

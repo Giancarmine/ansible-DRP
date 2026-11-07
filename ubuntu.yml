@@ -27,3 +27,31 @@
       tags: [k8s_tools, kubernetes]
     - role: vscode
       tags: [vscode]
+
+  post_tasks:
+    # ci/verify-vm.sh reads these pins from JSON, so it does not need a YAML
+    # parser in the guest. The file is also useful for post-provision audits.
+    - name: Create the ansible-DRP configuration directory
+      ansible.builtin.file:
+        path: "{{ home }}/.config/ansible-drp"
+        state: directory
+        mode: "0755"
+      tags: [always]
+
+    - name: Record the pinned versions for verification
+      ansible.builtin.copy:
+        dest: "{{ home }}/.config/ansible-drp/versions.json"
+        content: |
+          {{ {
+            'ohmyzsh_version': ohmyzsh_version,
+            'ohmyzsh_plugins': ohmyzsh_plugins,
+            'kops_version': kops_version,
+            'kubectl_version': kubectl_version,
+            'kubelogin_version': kubelogin_version,
+            'istioctl_version': istioctl_version,
+            'helm_version': helm_version,
+            'kustomize_version': kustomize_version,
+            'topgrade_version': topgrade_version
+          } | to_nice_json }}
+        mode: "0644"
+      tags: [always]

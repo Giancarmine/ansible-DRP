@@ -1,3 +1,4 @@
+require "shellwords"
 require "yaml"
 
 Vagrant.require_version ">= 2.3.0"
@@ -5,24 +6,42 @@ Vagrant.require_version ">= 2.3.0"
 # Keep the supported Ubuntu releases in one place. The CI workflow reads the
 # same file to build its job matrix, so adding a version is a data change.
 versions_file = File.join(__dir__, "ci", "ubuntu-versions.yml")
-versions = YAML.load_file(versions_file).fetch("versions")
-enabled = versions.reject { |version| version["enabled"] == false }
+document = YAML.safe_load(File.read(versions_file), permitted_classes: [], aliases: false)
+abort "#{versions_file}: expected a mapping with a versions list" unless document.is_a?(Hash)
+
+versions = document["versions"]
+unless versions.is_a?(Array) && !versions.empty?
+  abort "#{versions_file}: versions must be a non-empty list"
+end
+
+enabled = versions.select { |version| version["enabled"] == true }
+abort "#{versions_file}: no release is enabled" if enabled.empty?
 
 requested = ENV["UBUNTU_VERSION"]
-if requested.nil?
-  raise "No enabled Ubuntu version in #{versions_file}" if enabled.empty?
-
-  ubuntu = enabled.last
-else
-  ubuntu = versions.find { |version| version["release"] == requested }
-  if ubuntu.nil?
-    known = versions.map { |version| version["release"] }.join(", ")
-    raise "UBUNTU_VERSION=#{requested} is not defined in #{versions_file} (known: #{known})"
+ubuntu =
+  if requested.nil? || requested.empty?
+    enabled.last
+  else
+    candidate = versions.find { |version| version["release"] == requested }
+    if candidate.nil?
+      known = versions.map { |version| version["release"] }.join(", ")
+      abort "UBUNTU_VERSION=#{requested} is not defined in #{versions_file} (known: #{known})"
+    end
+    unless candidate["enabled"] == true
+      abort "UBUNTU_VERSION=#{requested} is disabled in #{versions_file}; " \
+            "enable it after validating its box"
+    end
+    candidate
   end
+
+%w[release box box_version].each do |key|
+  value = ubuntu[key]
+  abort "#{versions_file}: selected entry is missing #{key}" unless value.is_a?(String) && !value.empty?
 end
 
 box = ubuntu.fetch("box")
 box_version = ubuntu.fetch("box_version")
+collections_path = File.join(__dir__, ".ansible", "collections")
 
 Vagrant.configure("2") do |config|
   # One machine per release, so switching UBUNTU_VERSION does not reuse another
@@ -79,7 +98,11 @@ Vagrant.configure("2") do |config|
       # controller can move past 2.22 without waiting for Vagrant.
       ansible.playbook_command = File.expand_path("ci/ansible-playbook-compat", __dir__)
       ansible.galaxy_role_file = "requirements.yml"
-      ansible.galaxy_command = "ansible-galaxy collection install --force -r %{role_file}"
+      # Install into the checkout so Vagrant jobs do not modify the user's
+      # global collection path. The wrapper uses the same ansible.cfg path.
+      ansible.galaxy_command = "ansible-galaxy collection install --force " \
+                               "--collections-path #{collections_path.shellescape} " \
+                               "-r %{role_file}"
     end
   end
 end

@@ -6,17 +6,16 @@ pair and exits non-zero if a pinned hash differs. Pass --update to rewrite the
 hash values in place after a deliberate version bump.
 
 Topgrade does not publish checksum files, so its archives are downloaded and
-hashed locally.
+hashed locally. Transient timeouts, HTTP 429 and 5xx responses are retried with
+exponential backoff; 404 responses are reported immediately.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import re
 import sys
 import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,8 +27,8 @@ except ModuleNotFoundError:  # pragma: no cover - depends on the local environme
         "with the same Python interpreter that runs Ansible."
     )
 
-TIMEOUT = 60
-READ_SIZE = 1024 * 1024
+from http_utils import fetch_hash, fetch_text
+
 HASH_RE = re.compile(r"\b[0-9a-f]{64}\b")
 
 
@@ -46,23 +45,6 @@ class Download:
     """An archive that must be downloaded and hashed."""
 
     url: str
-
-
-def request(url: str) -> urllib.request.Request:
-    return urllib.request.Request(url, headers={"User-Agent": "ansible-DRP-checksum-verifier"})
-
-
-def fetch_text(url: str) -> str:
-    with urllib.request.urlopen(request(url), timeout=TIMEOUT) as response:
-        return response.read().decode()
-
-
-def fetch_hash(url: str) -> str:
-    digest = hashlib.sha256()
-    with urllib.request.urlopen(request(url), timeout=TIMEOUT) as response:
-        while chunk := response.read(READ_SIZE):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def hash_from_text(text: str, asset: str | None) -> str:

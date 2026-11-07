@@ -9,9 +9,9 @@ home: "{{ ansible_facts['env']['HOME'] }}"
 arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
 topgrade_arch: "{{ {'x86_64': 'x86_64', 'aarch64': 'aarch64'}[ansible_facts['architecture']] }}"
 
-# Packages installed by the base and docker roles.
+# Packages installed by the base role. GUI-only packages live in
+# packages_apt_desktop so a headless host can opt out.
 packages_apt:
-  - copyq
   - curl
   - fwupd
   - git
@@ -23,24 +23,33 @@ packages_apt:
   - wget
   - zip
 
+# Installed by base only when install_desktop_packages is true. copyq is a GUI
+# clipboard manager; the rest of the baseline works on headless servers.
+install_desktop_packages: true
+packages_apt_desktop:
+  - copyq
+
+# Optional Python packages. The base role enables pip's PEP 668 escape hatch on
+# Ubuntu 24.04+, where the system interpreter is externally managed.
 packages_pip: []
 
 packages_snap: []
 
-# Oh My Zsh publishes no releases, so it is pinned to a commit. The plugins use
-# their latest release tags. The managed .zshrc disables Oh My Zsh self-update,
-# so a provisioned machine stays on these versions until the pins are bumped.
+# Oh My Zsh publishes no releases, so it is pinned to a commit. The plugins are
+# pinned to the commits behind their release tags: tags can move, commits cannot.
+# The managed .zshrc disables Oh My Zsh self-update, so a provisioned machine
+# stays on these versions until the pins are bumped.
 ohmyzsh_version: "b509b1c6ed0c1ba37de12cbd37f30b2b2f61193a"
 ohmyzsh_plugins:
   - name: zsh-autosuggestions
     repo: https://github.com/zsh-users/zsh-autosuggestions.git
-    version: "v0.7.1"
+    version: "e52ee8ca55bcc56a17c828767a3f98f22a68d4eb" # v0.7.1
   - name: zsh-syntax-highlighting
     repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
-    version: "0.8.0"
+    version: "db085e4661f6aafd24e5acb5b2e17e4dd5dddf3e" # 0.8.0
   - name: zsh-history-substring-search
     repo: https://github.com/zsh-users/zsh-history-substring-search.git
-    version: "v1.1.0"
+    version: "400e58a87f72ecec14f783fbd29bc6be4ff1641c" # v1.1.0
 
 docker_packages:
   - docker.io

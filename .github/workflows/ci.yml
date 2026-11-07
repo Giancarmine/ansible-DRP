@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -31,48 +33,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          ansible-galaxy collection install --requirements-file requirements.yml
-
-      - name: Validate the Ubuntu version matrix
-        run: ruby ci/verify-ubuntu-versions.rb
-
-      - name: Lint YAML
-        run: yamllint .
-
-      - name: Lint Ansible
-        run: ansible-lint
-
-      - name: Check playbook syntax
-        run: ansible-playbook --syntax-check ubuntu.yml
-
-      - name: Check the Vagrantfile syntax
-        run: ruby -c Vagrantfile
-
-      - name: Check the Vagrant Ansible wrapper
-        run: |
-          tmp=$(mktemp -d)
-          trap 'rm -rf "$tmp"' EXIT
-          cat >"$tmp/ansible-playbook" <<'EOF'
-          #!/usr/bin/env bash
-          printf '%s\n' "$@"
-          EOF
-          chmod +x "$tmp/ansible-playbook"
-
-          output=$(PATH="$tmp:$PATH" ci/ansible-playbook-compat \
-            --inventory-file=/tmp/inventory --limit=ubuntu playbook.yml)
-          printf '%s\n' "$output"
-          grep -Fxq -- '--inventory=/tmp/inventory' <<<"$output"
-          grep -Fxq -- '--limit=ubuntu' <<<"$output"
-          grep -Fxq -- 'playbook.yml' <<<"$output"
-
-          output=$(PATH="$tmp:$PATH" ci/ansible-playbook-compat \
-            --inventory-file /tmp/inventory playbook.yml)
-          printf '%s\n' "$output"
-          grep -Fxq -- '--inventory' <<<"$output"
-          grep -Fxq -- '/tmp/inventory' <<<"$output"
-
-      - name: Verify the pinned release checksums
-        run: python ci/verify-checksums.py
+          ansible-galaxy collection install \
+            --collections-path .ansible/collections \
+            --requirements-file requirements.yml
 
       - name: Install actionlint
         run: |
@@ -82,9 +45,6 @@ jobs:
             | sha256sum -c -
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
 
-      - name: Lint GitHub Actions
-        run: /tmp/actionlint
-
       - name: Install shellcheck
         run: |
           curl -fsSL -o /tmp/shellcheck.tar.xz \
@@ -93,11 +53,11 @@ jobs:
             | sha256sum -c -
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
 
-      - name: Lint shell scripts
-        run: |
-          /tmp/shellcheck-v0.10.0/shellcheck \
-            bootstrap.sh ci/ansible-playbook-compat ci/verify-vm.sh \
-            roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
+      - name: Run repository checks
+        env:
+          ACTIONLINT: /tmp/actionlint
+          SHELLCHECK: /tmp/shellcheck-v0.10.0/shellcheck
+        run: ci/check.sh
 
   bootstrap:
     name: Bootstrap on Ubuntu 24.04
@@ -105,6 +65,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run bootstrap and check the playbook
         run: |

@@ -10,6 +10,9 @@
     custom_apt_key:
       url: https://packages.microsoft.com/keys/microsoft.asc
       keyring: /etc/apt/keyrings/vscode.asc
+      # Pinned so a changed key fails provisioning instead of being trusted
+      # silently. Bump this deliberately when Microsoft rotates the key.
+      checksum: "sha256:2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6"
     custom_apt_repo: https://packages.microsoft.com/repos/code stable main
     custom_apt_package: code
   tags: [vscode]

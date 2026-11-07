@@ -74,16 +74,36 @@
     label: "{{ item.path | basename }}"
   when: (item.path | basename) != (custom_tools_name ~ '-' ~ custom_tools_version)
 
+- name: "Check the completion command for {{ custom_tools_name }}"
+  ansible.builtin.assert:
+    that:
+      - custom_tools_completion_command is not string
+      - custom_tools_completion_command | length > 0
+    fail_msg: >-
+      custom_tools_completion_command must be a non-empty argv list for
+      {{ custom_tools_name }}.
+    quiet: true
+  when: custom_tools_completion_command is defined
+
 - name: "Create the completion directory for {{ custom_tools_name }}"
   ansible.builtin.file:
     path: "{{ custom_tools_completion_dir }}"
     state: directory
     mode: "0755"
-  when: custom_tools_completion is defined
+  when: custom_tools_completion_command is defined
 
-- name: "Add the zsh completion for {{ custom_tools_name }}"
+# Generate the file once at provision time. Sourcing a process substitution in
+# .zshrc would run every tool on every shell startup.
+- name: "Generate the zsh completion for {{ custom_tools_name }}"
+  ansible.builtin.command:
+    argv: "{{ custom_tools_completion_command }}"
+  register: custom_tools_completion_output
+  changed_when: false
+  when: custom_tools_completion_command is defined
+
+- name: "Write the zsh completion for {{ custom_tools_name }}"
   ansible.builtin.copy:
-    content: "{{ custom_tools_completion }}\n"
+    content: "{{ custom_tools_completion_output.stdout }}\n"
     dest: "{{ custom_tools_completion_dir }}/{{ custom_tools_name }}.zsh"
     mode: "0644"
-  when: custom_tools_completion is defined
+  when: custom_tools_completion_command is defined

@@ -59,10 +59,14 @@ if [ -z "$ansible_version" ] || \
     exit 1
 fi
 
-echo "Installing Ansible collections..."
+collections_path="$PWD/.ansible/collections"
+echo "Installing Ansible collections into ${collections_path}..."
 # --force also replaces an already installed collection that has another
-# version, so the pin in requirements.yml is always the one in use.
-ansible-galaxy collection install --force --requirements-file requirements.yml
+# version, so the pin in requirements.yml is always the one in use. The local
+# path keeps this repository from modifying a shared Ansible installation.
+ansible-galaxy collection install --force \
+    --collections-path "$collections_path" \
+    --requirements-file requirements.yml
 
 echo
 echo "Ansible ${ansible_version} is ready in ${venv}."

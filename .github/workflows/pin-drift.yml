@@ -1,0 +1,92 @@
+---
+name: Pin drift
+
+on:
+  schedule:
+    # Weekly check: upstream hashes can disappear and boxes get new versions.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pin-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Check pinned releases and boxes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Ansible (provides PyYAML)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify pinned release checksums
+        id: checksums
+        continue-on-error: true
+        run: python ci/verify-checksums.py
+
+      - name: Check Vagrant box versions
+        id: boxes
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python ci/check-box-updates.py --markdown --fail-on-updates \
+            | tee box-updates.md
+
+      - name: Add the box report to the summary
+        if: always()
+        run: cat box-updates.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Open or update the drift issue
+        if: steps.checksums.outcome == 'failure' || steps.boxes.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKSUMS_OUTCOME: ${{ steps.checksums.outcome }}
+          BOXES_OUTCOME: ${{ steps.boxes.outcome }}
+        run: |
+          body=$(mktemp)
+          {
+            echo "The scheduled pin check found drift on $(date -u +%Y-%m-%d)."
+            echo
+            if [ "$CHECKSUMS_OUTCOME" = "failure" ]; then
+              echo "## Release checksums"
+              echo
+              echo "The checksum verifier failed. Run \`python ci/verify-checksums.py\`"
+              echo "locally and review the output before updating any pin."
+              echo
+            fi
+            if [ "$BOXES_OUTCOME" = "failure" ]; then
+              echo "## Vagrant boxes"
+              echo
+              cat box-updates.md
+              echo
+            fi
+            echo "This issue is updated by the weekly **Pin drift** workflow."
+          } > "$body"
+
+          existing=$(gh issue list --state open \
+            --search 'in:title "Scheduled pin drift detected"' \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$body"
+          else
+            gh issue create --title "Scheduled pin drift detected" --body-file "$body"
+          fi

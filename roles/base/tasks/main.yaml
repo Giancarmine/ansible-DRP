@@ -8,11 +8,34 @@
     cache_valid_time: 3600
   tags: [apt]
 
+- name: Install desktop APT packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ packages_apt_desktop }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when:
+    - install_desktop_packages | bool
+    - packages_apt_desktop | length > 0
+  tags: [apt, desktop]
+
+- name: Install pip for optional Python packages
+  become: true
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: packages_pip | length > 0
+  tags: [pip]
+
 - name: Install PIP packages
   become: true
   ansible.builtin.pip:
     name: "{{ packages_pip }}"
     state: present
+    break_system_packages: "{{ base_pip_break_system_packages }}"
   when: packages_pip | length > 0
   tags: [pip]
 

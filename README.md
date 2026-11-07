@@ -16,7 +16,7 @@ can be added without touching the playbook.
 
 | Role | Installs | Tag |
 |---|---|---|
-| `base` | APT packages from `packages_apt`, optional pip/snap packages | `base` |
+| `base` | APT packages from `packages_apt`, optional desktop/pip/snap packages | `base` |
 | `ohmyzsh` | zsh, Oh My Zsh, autosuggestions, syntax highlighting, history search | `ohmyzsh`, `shell` |
 | `topgrade` | [Topgrade](https://github.com/topgrade-rs/topgrade) | `topgrade` |
 | `docker` | `docker.io`, `docker-compose-v2`, daemon config, `docker` group | `docker` |
@@ -47,9 +47,11 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
   Python 3.12+.
 - Ansible 2.18 or newer. `bootstrap.sh` creates `.venv` and installs the pinned controller from
   `requirements.txt`, so a system Ansible package is not needed.
-- The `community.general` 13.5.0 collection, installed by `bootstrap.sh` from `requirements.yml`.
-- For local linting: install `requirements-dev.txt` (pinned `ansible-core`, `ansible-lint` and
-  `yamllint`).
+- The `community.general` 13.5.0 collection, installed by `bootstrap.sh` into
+  `.ansible/collections` from `requirements.yml`. The checkout stays self-contained instead of
+  changing a shared Ansible installation.
+- For local linting: install `requirements-dev.txt` (pinned `ansible-core`, `ansible-lint`,
+  `yamllint` and `zizmor`) and run `make check`.
 
 ### Vagrant VM (optional)
 
@@ -126,6 +128,7 @@ the SSH user rather than the user running Ansible. `inventory.local` is git-igno
 |---|---|---|
 | `inventory` | `inventory` | Localhost unless another inventory is passed with `-i` |
 | `roles_path` | `roles` | Roles resolve from this repository |
+| `collections_path` | `./.ansible/collections` | Required collections stay inside the checkout |
 | `host_key_checking` | `True` | Host keys are verified. Add `ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'` to the inventory for a first connection |
 | `interpreter_python` | `auto_silent` | Finds the target's Python without extra warnings |
 | `retry_files_enabled` | `False` | No `*.retry` files are left behind |
@@ -137,7 +140,9 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 | Variable | Default | Purpose |
 |---|---|---|
 | `packages_apt` | CLI baseline (git, curl, zip, `software-properties-common`, …) | APT packages installed by `base` |
-| `packages_pip` | `[]` | Optional pip packages |
+| `install_desktop_packages` | `true` | Install GUI-only packages from `packages_apt_desktop`; set to `false` on a headless host |
+| `packages_apt_desktop` | `copyq` | GUI packages skipped when `install_desktop_packages` is false |
+| `packages_pip` | `[]` | Optional pip packages. On Ubuntu 24.04+ `base` passes `--break-system-packages` automatically |
 | `packages_snap` | `[]` | Optional snaps: strings for strict snaps, or `{name, classic}` maps |
 | `docker_packages` | `docker.io`, `docker-compose-v2` | Docker packages |
 | `docker_daemon` | `{}` | JSON written to `/etc/docker/daemon.json`, only when non-empty |
@@ -152,7 +157,7 @@ Defaults live in `group_vars/all.yml`; override them there or with `--extra-vars
 | `kustomize_version` | `5.8.3` | kustomize version |
 | `topgrade_version` | `17.14.1` | Topgrade version |
 | `ohmyzsh_version` | pinned commit | Oh My Zsh version installed by the `ohmyzsh` role |
-| `ohmyzsh_plugins` | three pinned plugins | Plugin repositories and release tags cloned by `ohmyzsh` |
+| `ohmyzsh_plugins` | three pinned plugins | Plugin repositories and commit pins cloned by `ohmyzsh` |
 
 ### Role defaults
 
@@ -169,7 +174,8 @@ These are advanced knobs used by the helper roles. The defaults are usually corr
 | `custom_tools_bin_dir` | `/usr/local/bin` | Destination for tool symlinks |
 | `custom_tools_unarchive` | `false` | Force archive extraction instead of a single binary |
 | `custom_tools_checksum` | required | SHA256 of the release asset, verified by `get_url` |
-| `custom_tools_completion_dir` | `~/.config/ansible-drp/completions.d` | Directory of per-tool native zsh completions sourced by `.zshrc` |
+| `custom_tools_completion_command` | undefined | argv list that prints the tool's zsh completion; generated once at provision time |
+| `custom_tools_completion_dir` | `~/.config/ansible-drp/completions.d` | Directory of generated per-tool zsh completions sourced by `.zshrc` |
 | `k8s_tools_github_url` | `https://github.com` | Base URL for GitHub-hosted releases |
 
 Example override:
@@ -191,6 +197,9 @@ Every per-tool tag installs the package it needs before using it:
 - `kubelogin` installs `unzip`, because kubelogin ships as a ZIP archive.
 - `zsh`, `ohmyzsh` and `shell` install `zsh` and `git`, because the role clones the framework and
   its plugins from GitHub.
+- `pip` installs `python3-pip` before installing `packages_pip`.
+- `desktop` installs only `packages_apt_desktop`; `apt` installs both the CLI baseline and the
+  desktop set.
 
 `base` still installs the full CLI baseline, but `--tags kubelogin` or `--tags ohmyzsh` works on
 a fresh machine without running `base` first.
@@ -198,20 +207,26 @@ a fresh machine without running `base` first.
 ## Project layout
 
 ```
-ansible.cfg                  inventory path, roles path, defaults
+ansible.cfg                  inventory, roles and collections paths, defaults
 inventory                    localhost by default; copy for remote hosts
 requirements.txt             pinned Ansible controller
 requirements.yml             pinned community.general collection
 requirements-dev.txt         pinned lint toolchain (includes requirements.txt)
 .ansible-lint                production profile, strict mode
 ubuntu.yml                   the playbook
+Makefile                     local check, checksum, drift and VM shortcuts
 bootstrap.sh                 creates .venv, installs the controller and the collection
 group_vars/all.yml           packages, versions, checksums, architecture
 ci/ansible-playbook-compat   translates Vagrant's deprecated --inventory-file flag
+ci/assert-recap.sh           asserts changed=0, unreachable=0 and failed=0
+ci/check.sh                  runs the static checks used by CI
+ci/check-box-updates.py      reports newer Vagrant box versions
+ci/http_utils.py             retrying HTTP helpers shared by the pin scripts
 ci/verify-checksums.py       verifies or updates the pinned release checksums
 ci/verify-ubuntu-versions.rb validates the release matrix and prints it as JSON
 ci/verify-vm.sh              checks the tools inside the provisioned VM
 ci/ubuntu-versions.yml       Ubuntu releases and boxes used by the Vagrant test
+.github/workflows/pin-drift.yml  weekly checks for upstream pin drift
 roles/
 ├── base/                    APT/pip/snap packages
 ├── custom_apt/              adds an APT repository with a signed key
@@ -229,21 +244,19 @@ these two describe *how*.
 
 ## Testing
 
-The CI workflow runs on every push and pull request on `ubuntu-24.04`:
+To reproduce the CI checks locally on `ubuntu-24.04`:
 
 ```bash
+./bootstrap.sh
+source .venv/bin/activate
 pip install -r requirements-dev.txt
-ansible-galaxy collection install -r requirements.yml
-yamllint .
-ansible-lint                 # production profile, strict mode
-ansible-playbook --syntax-check ubuntu.yml
-ruby -c Vagrantfile          # Vagrantfile syntax
-ruby ci/verify-ubuntu-versions.rb   # release matrix
-python ci/verify-checksums.py
-actionlint                   # GitHub Actions
-shellcheck bootstrap.sh ci/ansible-playbook-compat ci/verify-vm.sh \
-  roles/k8s_tools/files/usr/local/bin/kustomize-wrapper
+make check
 ```
+
+`make check` runs the same matrix validation, `yamllint`, `ansible-lint`, playbook syntax,
+`ruby -c Vagrantfile`, both wrapper translations, release checksum verification, `actionlint`,
+`shellcheck`, `zizmor` and `git diff --check`. It skips tools that are not installed, so the
+same command works locally and in CI. Set `SKIP_CHECKSUMS=1` to skip the network checks.
 
 A second CI job runs `./bootstrap.sh` on a clean `ubuntu-24.04` runner, activates the generated
 `.venv` and runs the playbook syntax check, so the quick start is tested on every push.
@@ -251,25 +264,29 @@ A second CI job runs `./bootstrap.sh` on a clean `ubuntu-24.04` runner, activate
 The lint toolchain, the `community.general` collection, shellcheck and actionlint are pinned, so
 a new upstream release cannot turn `main` red without a deliberate update. GitHub Actions are
 pinned to commit SHAs as well. Dependabot opens weekly PRs for the Actions and Python pins; the
-collection version is bumped in `requirements.yml`, and the Oh My Zsh commit and plugin tags are
-bumped in `group_vars/all.yml`.
+collection version is bumped in `requirements.yml`, and the Oh My Zsh commit and plugin commits
+are bumped in `group_vars/all.yml`. A weekly **Pin drift** workflow re-runs the checksum verifier
+and reports newer Vagrant boxes in an issue, because Dependabot cannot see either pin type.
 
 ### Release checksums
 
 `ci/verify-checksums.py` downloads the upstream checksum file for every `(tool, architecture)`
 pair in `release_checksums` and fails when a pinned hash differs. Topgrade publishes no checksum
-file, so the script downloads and hashes that archive instead.
+file, so the script downloads and hashes that archive instead. Timeouts, HTTP 429 and 5xx
+responses are retried with exponential backoff, so a transient GitHub 504 does not turn the job
+red; a 404 still fails immediately.
 
 When you bump a version in `group_vars/all.yml`:
 
 ```bash
 # Review the new release first, then refresh the pinned hashes.
-python ci/verify-checksums.py --update
+make update-checksums
 git diff group_vars/all.yml
-python ci/verify-checksums.py   # must pass with no changes
+make checksums   # must pass with no changes
 ```
 
 The CI job runs the script on every push, so a stale hash is caught before it reaches a VM.
+`make drift` additionally reports newer Vagrant box versions.
 
 For a real end-to-end run, use the disposable Vagrant VM. It is libvirt-only: the shared folder
 uses 9p and the box comes from `ci/ubuntu-versions.yml`, pinned by release and version. The
@@ -294,7 +311,8 @@ versions:
 ```
 
 - The `Vagrantfile` selects the entry named by `UBUNTU_VERSION`, or the last enabled entry when
-  the variable is unset. The current default is 26.04.
+  the variable is unset. The current default is 26.04. An explicitly named entry with
+  `enabled: false` is rejected until its box has been validated.
 - The **Vagrant** workflow builds its job matrix from the enabled entries, so each release runs in
   its own job with its own log artifact.
 - `enabled: false` keeps a candidate box in the file without running it.
@@ -303,9 +321,11 @@ The repository currently enables 22.04, 24.04 and 26.04:
 `alvistack/ubuntu-22.04` 20260108.1.1, `alvistack/ubuntu-24.04` 20260108.1.1 and
 `alvistack/ubuntu-26.04` 20260516.1.1.
 
-The Vagrant boxes are amd64, so the VM workflow exercises the amd64 release assets. The playbook
-also supports arm64 and pins arm64 checksums, but the arm64 path is not covered by the Vagrant
-matrix.
+The Vagrant boxes are amd64-only, and GitHub-hosted arm runners do not expose nested KVM, so the
+VM matrix cannot cover arm64. CI still verifies every pinned arm64 checksum and the playbook
+asserts the target architecture; the asset-selection code is shared between both architectures.
+The arm64 gap is a runner limitation, not an untested playbook branch hidden by a different code
+path.
 
 `ci/verify-ubuntu-versions.rb` checks the file before either workflow uses it: releases must be
 unique, ascending `YY.MM` strings, boxes must be unique `owner/name` values with fixed numeric
@@ -333,8 +353,9 @@ gh workflow run vagrant-up.yml -f ubuntu-version=24.04
 The workflow first builds a matrix from `ci/ubuntu-versions.yml`, then runs one job per enabled
 release. Each job installs the pinned `ansible-core` on the host, sets up libvirt with the pinned
 `vagrant-libvirt` 0.12.2, checks KVM, runs `vagrant up`, executes `ci/verify-vm.sh` inside the
-guest, optionally re-provisions and requires `changed=0`, uploads the logs as
-`vagrant-logs-ubuntu-<release>`, and destroys the VM. It runs on `ubuntu-24.04` and fails fast if
+guest, optionally re-provisions and requires `changed=0`, `unreachable=0` and `failed=0` via
+`ci/assert-recap.sh`, uploads the logs as `vagrant-logs-ubuntu-<release>`, and destroys the VM.
+It runs on `ubuntu-24.04` and fails fast if
 `/dev/kvm` is missing. GitHub-hosted runners currently expose KVM, but nested virtualization is
 not officially supported; use a self-hosted runner with KVM if you need a guaranteed host. A run
 takes about 5-10 minutes per release.
@@ -344,10 +365,12 @@ The `Vagrantfile` sets `ansible.playbook_command` to `ci/ansible-playbook-compat
 translates that flag to `--inventory` before running the pinned controller. CI checks the
 translation, so a future Ansible bump does not silently break `vagrant up`.
 
-`ci/verify-vm.sh` checks zsh/Oh My Zsh, its pinned commit and plugin tags, and that the managed
-`.zshrc` loads, the completion file, Docker + Compose plus daemon access as the login user, every
-pinned Kubernetes tool, VS Code and the base packages. The pinned versions are read from
-`group_vars/all.yml`, so bumping a version there also updates the assertion.
+`ci/verify-vm.sh` checks zsh/Oh My Zsh, its pinned commit and plugin commits, and that the managed
+`.zshrc` loads, the generated completion files, Docker + Compose plus daemon access as the login
+user, every pinned Kubernetes tool, VS Code and the base packages. The playbook writes the pins
+to `~/.config/ansible-drp/versions.json`, and the script reads that JSON with the target's
+`python3`, so bumping a version in `group_vars/all.yml` also updates the assertion without a YAML
+parser in the guest.
 
 ## Vagrant VM (libvirt)
 
@@ -457,7 +480,7 @@ of disk: the box is about 2 GB and the VM disk is sparse. A successful run ends 
 
 ```
 PLAY RECAP
-ubuntu-26.04 : ok=76  changed=44  unreachable=0  failed=0  skipped=23
+ubuntu-26.04 : ok=93  changed=47  unreachable=0  failed=0  skipped=24
 ```
 
 To test another release, pass its version from `ci/ubuntu-versions.yml`:
@@ -471,6 +494,13 @@ release's disk. Re-running is safe and should report `changed=0`:
 
 ```bash
 vagrant provision
+```
+
+The same sequence is available through `make`:
+
+```bash
+make vm-test        # up, verify, re-provision and assert changed=0
+make vm-verify      # run ci/verify-vm.sh in the current VM
 ```
 
 Useful commands:
@@ -489,7 +519,19 @@ The box ships with cloud-init disabled. Vagrant's generated 9p mount metadata is
 applied, so the `mount-9p` provisioner mounts `/vagrant` itself and adds an `fstab` entry before
 the Ansible provisioner runs.
 
-### Troubleshooting
+### Playbook troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `bootstrap.sh` reports Python 3.10 or 3.11 | The pinned controller needs Python 3.12+. Use a newer controller host or install a newer Python. The Ubuntu 22.04 target is still supported. |
+| `error: externally-managed-environment` from pip | Update to this revision; `base` enables pip's PEP 668 escape hatch on Ubuntu 24.04+ automatically. Use a venv or `pipx` if you need isolation. |
+| `couldn't resolve module/action 'community.general...'` | Run `./bootstrap.sh`, or install the collection into the checkout with `ansible-galaxy collection install --collections-path .ansible/collections -r requirements.yml`. |
+| VS Code repository key fails its checksum | Microsoft rotated the signing key. Review the new key, update the checksum in `roles/vscode/tasks/main.yaml`, and re-provision. |
+| Completion functions are missing or a new shell feels slow | Re-provision; completions are generated once under `~/.config/ansible-drp/completions.d`. The `.zshrc` does not execute tool binaries at startup. |
+| `UBUNTU_VERSION=... is disabled` | Validate that box locally, set `enabled: true` in `ci/ubuntu-versions.yml`, then retry. |
+| `make check` skips `actionlint`, `shellcheck` or `zizmor` | Install `requirements-dev.txt` and the two binaries, or let CI run the complete set. Missing optional tools are reported, not treated as failures. |
+
+### Vagrant troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
@@ -501,14 +543,14 @@ the Ansible provisioner runs.
 
 ### Validated environment
 
-Validated end to end on 2026-11-05 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.8.0,
+Validated end to end on 2026-11-08 with Vagrant 2.4.9, `vagrant-libvirt` 0.12.2, libvirt 12.9.0,
 QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `alvistack` box:
 
 | Release | Box | Fresh run | Second provision |
 |---|---|---|---|
-| 22.04 | `alvistack/ubuntu-22.04` 20260108.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
-| 24.04 | `alvistack/ubuntu-24.04` 20260108.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
-| 26.04 | `alvistack/ubuntu-26.04` 20260516.1.1 | `ok=76 changed=44 failed=0 skipped=23` | `ok=71 changed=0 failed=0 skipped=28` |
+| 22.04 | `alvistack/ubuntu-22.04` 20260108.1.1 | `ok=93 changed=47 unreachable=0 failed=0 skipped=24` | `ok=88 changed=0 unreachable=0 failed=0 skipped=29` |
+| 24.04 | `alvistack/ubuntu-24.04` 20260108.1.1 | `ok=93 changed=47 unreachable=0 failed=0 skipped=24` | `ok=88 changed=0 unreachable=0 failed=0 skipped=29` |
+| 26.04 | `alvistack/ubuntu-26.04` 20260516.1.1 | `ok=93 changed=47 unreachable=0 failed=0 skipped=24` | `ok=88 changed=0 unreachable=0 failed=0 skipped=29` |
 
 `ci/verify-vm.sh` passed on all three. The **Vagrant** workflow repeats the same checks on an
 `ubuntu-24.04` GitHub-hosted runner in roughly 5-10 minutes per release.
@@ -517,9 +559,10 @@ QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `al
 
 - `ohmyzsh` manages `~/.zshrc`. The previous file is backed up next to it as
   `.zshrc.<timestamp>` on the first change.
-- Oh My Zsh is pinned to a commit and its plugins to release tags in `group_vars/all.yml`.
-  Oh My Zsh self-update is disabled in the managed `.zshrc`, so a provisioned machine stays on
-  those versions until you bump the pins. `ci/verify-vm.sh` checks the pins in the VM.
+- Oh My Zsh and its plugins are pinned to commits in `group_vars/all.yml`; the plugin comments
+  name the release tag each commit came from. Tags can move, commits cannot. Oh My Zsh self-update
+  is disabled in the managed `.zshrc`, so a provisioned machine stays on those versions until you
+  bump the pins. `ci/verify-vm.sh` checks the commits in the VM.
 - Adding the user to the `docker` group takes effect after a new login session.
 - The playbook installs packages but does not upgrade the system or reboot it.
 - The `docker` role restarts Docker only when `daemon.json` changes. With the default empty
@@ -529,17 +572,27 @@ QEMU 11.1.3 and ansible-core 2.21.5. Each release was booted from its pinned `al
   `release_checksums`. A version bump must update the version and both architecture hashes.
 - `topgrade` uses the same versioned install as the Kubernetes tools, so bumping
   `topgrade_version` replaces the binary instead of leaving the old one in place.
-- Shell completions are written as one native zsh file per tool under
+- Shell completions are generated once at provision time as one native zsh file per tool under
   `~/.config/ansible-drp/completions.d` and sourced by `.zshrc` after Oh My Zsh, so `compinit` is
-  already loaded. A changed completion replaces the tool's file instead of appending a stale line.
+  already loaded. New shells do not execute the tools, and a changed completion replaces the
+  tool's file instead of appending a stale line. `kustomize` is included with the other tools.
 - When a tool version changes, `custom_tools` removes the previous `<tool>-<version>` directory
   from `/usr/local/lib` after the new binary is linked, so old releases do not accumulate.
-- `packages_pip` uses the system Python. On Ubuntu 24.04, populate it only if you also provide a
-  venv or pass `--break-system-packages`; the default is empty.
+- `packages_pip` installs into the system interpreter. On Ubuntu 24.04+ `base` passes
+  `--break-system-packages` automatically because PEP 668 marks that interpreter as externally
+  managed. Use a virtualenv or `pipx` instead if you need isolation; the default list is empty.
 - `packages_snap` accepts strings for strict snaps, or `{name: foo, classic: true}` maps for
   classic confinement.
-- `copyq` is a GUI application and `unrar` comes from multiverse. Trim `packages_apt` for a
-  headless server or a minimal image without those components.
+- `copyq` is a GUI application and `unrar` comes from multiverse. Set
+  `install_desktop_packages: false` on a headless server, or trim `packages_apt` for a minimal
+  image without multiverse.
+- The VS Code signing key is pinned by SHA256. Microsoft key rotations fail provisioning instead
+  of being trusted silently; update the checksum in `roles/vscode/tasks/main.yaml` after reviewing
+  the new key.
+- Required collections are installed under `.ansible/collections` (git-ignored), so a run does not
+  change the user's global Ansible installation.
+- `~/.config/ansible-drp/versions.json` records the pins used for the last provision. It is
+  written as JSON so the guest-side verification does not need PyYAML.
 - `host_key_checking` is enabled. Use `StrictHostKeyChecking=accept-new` in the inventory for the
   first connection to a new host.
 - The Vagrant box is pinned by release and version in `ci/ubuntu-versions.yml` for the same
