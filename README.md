@@ -42,9 +42,9 @@ The `k8s_tools` role also has one tag per tool: `kops`, `kubectl`, `helm`, `isti
 
 ### Controller (direct or remote runs)
 
-- Python 3.12 or newer and `git`. The pinned `ansible-core` 2.21.5 requires Python 3.12+, so
-  Ubuntu 22.04's Python 3.10 is not enough for the controller. Use a newer host or install
-  Python 3.12+.
+- Python 3.13 or newer and `git`. The pinned `ansible-core` 2.22.0 requires Python 3.13+, so
+  Ubuntu 22.04's Python 3.10 and Ubuntu 24.04's default Python 3.12 are not enough for the
+  controller. Use a newer host or install Python 3.13+.
 - Ansible 2.18 or newer. `bootstrap.sh` creates `.venv` and installs the pinned controller from
   `requirements.txt`, so a system Ansible package is not needed.
 - The `community.general` 13.5.0 collection, installed by `bootstrap.sh` into
@@ -523,7 +523,7 @@ the Ansible provisioner runs.
 
 | Symptom | Cause / fix |
 |---|---|
-| `bootstrap.sh` reports Python 3.10 or 3.11 | The pinned controller needs Python 3.12+. Use a newer controller host or install a newer Python. The Ubuntu 22.04 target is still supported. |
+| `bootstrap.sh` reports Python older than 3.13 | The pinned controller needs Python 3.13+. Use a newer controller host or install a newer Python. The Ubuntu 22.04 target is still supported. |
 | `error: externally-managed-environment` from pip | Update to this revision; `base` enables pip's PEP 668 escape hatch on Ubuntu 24.04+ automatically. Use a venv or `pipx` if you need isolation. |
 | `couldn't resolve module/action 'community.general...'` | Run `./bootstrap.sh`, or install the collection into the checkout with `ansible-galaxy collection install --collections-path .ansible/collections -r requirements.yml`. |
 | VS Code repository key fails its checksum | Microsoft rotated the signing key. Review the new key, update the checksum in `roles/vscode/tasks/main.yaml`, and re-provision. |

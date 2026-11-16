@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-minimum_python="3.12"
+minimum_python="3.13"
 venv=".venv"
 requirements="requirements.txt"
 
